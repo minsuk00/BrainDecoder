@@ -40,3 +40,5 @@ Pixel-level semantics Extractor Mp
 - make feature extraction function from brain2image (f)
 - implement contrastive learning to train f
 - make gan for saliency map
+
+- preprocess data into 440ms
