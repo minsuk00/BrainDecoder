@@ -2,8 +2,9 @@ import torch
 from torch.utils.data import Dataset
 import os
 import random
+import numpy as np
 
-root_path = ""
+root_path = "/Users/ms/cs/ML/NeuroImagen/"
 dataset_path = os.path.join(root_path, "dataset")
 images_dataset_path = os.path.join(dataset_path, "imageNet_images")
 eeg_dataset_path = os.path.join(dataset_path, "eeg")
@@ -30,7 +31,7 @@ class EEGDataset(Dataset):
         return self.size
 
 
-class SplitDataset(Dataset):
+class Splitter(Dataset):
     def __init__(self, dataset, split_name="train") -> None:
         super().__init__()
         self.dataset = dataset
@@ -47,6 +48,8 @@ class SplitDataset(Dataset):
         ]
 
         self.size = len(self.target_data_indices)
+        self.all_labels = np.array(self.get_all_labels())
+        self.all_eegs = self.get_all_eegs()
 
     def __getitem__(self, idx):
         eeg, label = self.dataset[self.target_data_indices[idx]]
@@ -54,6 +57,33 @@ class SplitDataset(Dataset):
 
     def __len__(self):
         return self.size
+
+    def get_all_labels(self):
+        data = [self.dataset[idx] for idx in self.target_data_indices]
+        return [item[1] for item in data]
+
+    def get_all_eegs(self):
+        data = [self.dataset[idx] for idx in self.target_data_indices]
+        return [item[0] for item in data]
+
+    def generate_data_points(self, anchor_labels, positive=True):
+        eeg_shape = self.__getitem__(0)[0].size()
+        eegs = torch.empty(0, eeg_shape[0], eeg_shape[1])
+        labels = torch.empty(0)
+        for anchor_label in anchor_labels:
+            indices = (
+                np.argwhere(self.all_labels == anchor_label.item())[:, 0]
+                if positive
+                else np.argwhere(self.all_labels != anchor_label.item())[:, 0]
+            )
+            data_idx = np.random.choice(indices)
+            eeg = self.all_eegs[data_idx]
+            eegs = torch.cat((eegs, eeg.unsqueeze(dim=0)))
+            labels = torch.cat(
+                (labels, torch.tensor(self.all_labels[data_idx]).unsqueeze(dim=0))
+            )
+
+        return eegs, labels
 
     def get_data(self, anchor_label, positive: bool = True):
         cnt = 0
