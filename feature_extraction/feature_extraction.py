@@ -1,3 +1,4 @@
+# Parse Argument
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -5,9 +6,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-O", "--optim", type=str, default="Adam")
 
 args = parser.parse_args()
-
 print(args)
 
+##################################################################
 
 import torch
 import torch.nn as nn
@@ -21,10 +22,13 @@ from torch.utils.data import DataLoader
 
 import os
 import numpy as np
-import random
+import sys
 
+sys.path.append("../")
 from dataset import EEGDataset, SplitDataset
+from model_config import config
 
+# Set Dataloaders
 dataset = EEGDataset(eeg_dataset_file_name="eeg_5_95_std.pth")
 loaders = {
     split: DataLoader(
@@ -35,7 +39,6 @@ loaders = {
     )
     for split in ["train", "val", "test"]
 }
-
 
 device = (
     "mps"
