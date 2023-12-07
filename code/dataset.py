@@ -3,6 +3,8 @@ from torch.utils.data import Dataset
 import os
 import random
 import numpy as np
+from PIL import Image
+import cv2
 
 root_path = "/Users/ms/cs/ML/NeuroImagen/"
 dataset_path = os.path.join(root_path, "dataset")
@@ -25,7 +27,8 @@ class EEGDataset(Dataset):
         eeg = eeg[20:460, :]
 
         label = self.data[idx]["label"]
-        return eeg, label
+        img_name = self.images[self.data[idx]["image"]]
+        return eeg, label, img_name
 
     def __len__(self):
         return self.size
@@ -52,8 +55,8 @@ class Splitter(Dataset):
         self.all_eegs = self.get_all_eegs()
 
     def __getitem__(self, idx):
-        eeg, label = self.dataset[self.target_data_indices[idx]]
-        return eeg, label
+        eeg, label, img_name = self.dataset[self.target_data_indices[idx]]
+        return eeg, label, img_name
 
     def __len__(self):
         return self.size
@@ -97,3 +100,29 @@ class Splitter(Dataset):
             if cnt >= 2000:
                 raise Exception(f"get_data failed after {cnt} tries")
             cnt += 1
+
+
+class EEGImageDataset(Dataset):
+    def __init__(self, dataset, transform=None):
+        super().__init__()
+        self.dataset = dataset
+        self.transform = transform
+
+    def __len__(self):
+        return self.dataset.__len__()
+
+    def __getitem__(self, idx):
+        eeg, _, img_name = self.dataset[idx]
+
+        # read img
+        img_path = os.path.join(
+            images_dataset_path, img_name.split("_")[0], img_name + ".jpeg"
+        )
+        img = Image.open(img_path).convert("RGB")
+        # img = cv2.imread(img_path)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        if self.transform:
+            img = self.transform(img)
+
+        return eeg, img
