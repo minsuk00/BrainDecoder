@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 import cv2
 
-root_path = "/Users/ms/cs/ML/NeuroImagen/"
+root_path = "/Users/ms/cs/ML/BrainDecoder/"
 dataset_path = os.path.join(root_path, "dataset")
 images_dataset_path = os.path.join(dataset_path, "imageNet_images")
 eeg_dataset_path = os.path.join(dataset_path, "eeg")
@@ -23,7 +23,7 @@ class EEGDataset(Dataset):
 
     def __getitem__(self, idx):
         # t() -> transpose
-        eeg = self.data[idx]["eeg"].t()
+        eeg = self.data[idx]["eeg"].t().to(torch.float)
         eeg = eeg[20:460, :]
 
         label = self.data[idx]["label"]
