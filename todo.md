@@ -37,8 +37,6 @@ Pixel-level semantics Extractor Mp
     ![Alt text](temp/image-3.png)
     
 ### todo
-- make feature extraction function from brain2image (f)
-- implement contrastive learning to train f
-- make gan for saliency map
-
-- preprocess data into 440ms
+- get good accuracy from contrastive loss
+- contrastive loss to cgan to get reasonable images
+- proceed

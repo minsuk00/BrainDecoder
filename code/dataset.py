@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 import cv2
 
-root_path = "/Users/ms/cs/ML/BrainDecoder/"
+root_path = "/home/choi/BrainDecoder/"
 dataset_path = os.path.join(root_path, "dataset")
 images_dataset_path = os.path.join(dataset_path, "imageNet_images")
 eeg_dataset_path = os.path.join(dataset_path, "eeg")
