@@ -13,14 +13,14 @@ parser.add_argument("-LL", "--lstm-layer", type=int, default=3)
 
 
 config = {
-    "batch-size": 16,
+    "batch_size": 16,
     "optimizer": "Adam",  # ("Adam", "AdamW", "SGD")
     "lr": 1e-3,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda-factor": 0.95,
-    "weight-decay": 0.001,
-    "lstm-layer": 3,
+    "lambda_factor": 0.95,
+    "weight_decay": 0.001,
+    "lstm_layer": 3,
 }
 
 ########################################################################
@@ -43,7 +43,8 @@ import sys
 from pprint import pprint
 
 # = "/home/choi/BrainDecoder/code"
-sys.path.append(os.path.join(os.path.dirname(os.getcwd())))
+# sys.path.append(os.path.join(os.path.dirname(os.getcwd())))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__))))
 import dataset as D
 
 ########################################################################
@@ -53,7 +54,7 @@ dataset = D.EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth"
 loaders = {
     split: DataLoader(
         D.Splitter(dataset, split_name=split),
-        batch_size=config["batch-size"],
+        batch_size=config["batch_size"],
         shuffle=True if split == "train" else False,
         num_workers=23,
         drop_last=True,
@@ -76,7 +77,7 @@ class FeatureExtractorNN(L.LightningModule):
 
         self.input_size = 128
         self.hidden_size = 128
-        self.lstm_layers = config["lstm-layer"]
+        self.lstm_layers = config["lstm_layer"]
         self.out_size = 128
 
         # self.lstm = nn.LSTM(input_size=128,hidden_size=128,num_layers=128)
@@ -200,20 +201,20 @@ class FeatureExtractorNN(L.LightningModule):
             return optim.Adam(
                 self.parameters(),
                 lr=config["lr"],
-                weight_decay=config["weight-decay"],
+                weight_decay=config["weight_decay"],
                 betas=config["betas"],
             )
         elif config["optimizer"] == "AdamW":
             return optim.AdamW(
                 self.parameters(),
                 lr=config["lr"],
-                weight_decay=config["weight-decay"],
+                weight_decay=config["weight_decay"],
             )
         elif config["optimizer"] == "SGD":
             return optim.SGD(
                 self.parameters(),
                 lr=config["lr"],
-                weight_decay=config["weight-decay"],
+                weight_decay=config["weight_decay"],
             )
         else:
             raise Exception("optimizer config error")
@@ -221,7 +222,7 @@ class FeatureExtractorNN(L.LightningModule):
     def create_scheduler(self, optimizer):
         if config["scheduler"] == "LambdaLR":
             return optim.lr_scheduler.LambdaLR(
-                optimizer, lambda epoch: config["lambda-factor"] ** epoch
+                optimizer, lambda epoch: config["lambda_factor"] ** epoch
             )
         else:
             raise Exception("scheduler config error")
@@ -249,7 +250,7 @@ def train():
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
     logger = TensorBoardLogger(
         "/home/choi/BrainDecoder/lightning_logs/FeatureExtractionClassification",
-        name=f"{now_time}_{config['optimizer']}_{config['lr']}_{config['scheduler']}_weight-decay_{config['weight-decay']}_lambda-factor_{config['lambda-factor']}",
+        name=f"{now_time}_{config['optimizer']}_{config['lr']}_{config['scheduler']}_weight_decay_{config['weight_decay']}_lambda_factor_{config['lambda_factor']}",
         version=now.strftime("%Y-%m-%d %H:%M:%S"),
     )
 
