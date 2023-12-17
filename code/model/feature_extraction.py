@@ -3,7 +3,13 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
+# parser.add_argument("-O", "--optim", type=str, default="Adam")
+parser.add_argument("-B", "--batch", type=int, default=16)
 parser.add_argument("-O", "--optim", type=str, default="Adam")
+parser.add_argument("-L", "--lr", type=float, default=1e-3)
+parser.add_argument("-W", "--weight-decay", type=float, default=0.001)
+parser.add_argument("-LF", "--lambda-factor", type=float, default=0.95)
+parser.add_argument("-LL", "--lstm-layer", type=int, default=3)
 
 
 config = {
@@ -34,6 +40,7 @@ import numpy as np
 from datetime import datetime
 from pytz import timezone
 import sys
+from pprint import pprint
 
 # = "/home/choi/BrainDecoder/code"
 sys.path.append(os.path.join(os.path.dirname(os.getcwd())))
@@ -260,9 +267,13 @@ def train():
 
 def update_config():
     args = parser.parse_args()
-    print(args)
+
+    for key, value in vars(args).items():
+        config[key] = value
+    # print(args)
 
 
 if __name__ == "__main__":
     update_config()
+    pprint(config)
     train()
