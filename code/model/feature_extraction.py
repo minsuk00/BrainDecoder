@@ -11,6 +11,7 @@ parser.add_argument("-W", "--weight-decay", type=float, default=0.001)
 parser.add_argument("-LF", "--lambda-factor", type=float, default=0.95)
 parser.add_argument("-LL", "--lstm-layer", type=int, default=3)
 parser.add_argument("-T", "--tsne", action="store_true", default=False)
+parser.add_argument("-TE", "--tsne-interval", type=int, default=10)
 
 
 config = {
@@ -23,7 +24,7 @@ config = {
     "weight_decay": 0.001,
     "lstm_layer": 3,
     "tsne": False,
-    "tsne-interval": 5,
+    "tsne_interval": 10,
 }
 
 ########################################################################
