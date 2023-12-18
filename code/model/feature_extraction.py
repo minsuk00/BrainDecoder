@@ -10,6 +10,7 @@ parser.add_argument("-L", "--lr", type=float, default=1e-3)
 parser.add_argument("-W", "--weight-decay", type=float, default=0.001)
 parser.add_argument("-LF", "--lambda-factor", type=float, default=0.95)
 parser.add_argument("-LL", "--lstm-layer", type=int, default=3)
+parser.add_argument("-T", "--tsne", action="store_true", default=False)
 
 
 config = {
@@ -21,6 +22,8 @@ config = {
     "lambda_factor": 0.95,
     "weight_decay": 0.001,
     "lstm_layer": 3,
+    "tsne": False,
+    "tsne-interval": 5,
 }
 
 ########################################################################
@@ -38,6 +41,9 @@ from torch.utils.data import DataLoader
 import os
 import numpy as np
 from datetime import datetime
+from matplotlib import pyplot as plt
+from sklearn.manifold import TSNE
+
 from pytz import timezone
 import sys
 from pprint import pprint
@@ -46,6 +52,7 @@ from pprint import pprint
 # sys.path.append(os.path.join(os.path.dirname(os.getcwd())))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__))))
 import dataset as D
+import lookup_dict as ld
 
 ########################################################################
 
@@ -153,6 +160,10 @@ class FeatureExtractorNN(L.LightningModule):
 
         self.log_dict({"train_acc_epoch": acc.item()})
 
+        if config["tsne"]:
+            if self.current_epoch % config["tsne-interval"] == 0:
+                self.show_manifold()
+
     def validation_step(self, batch, batch_idx):
         x, y, _ = batch
         x = x.to(device)
@@ -233,6 +244,63 @@ class FeatureExtractorNN(L.LightningModule):
         self.scheduler = scheduler
         return [optimizer], [scheduler]
         # return [optimizer]
+
+    def show_manifold(self, dataloader=loaders["val"]):
+        features = []
+        actuals = []
+
+        # calculate feature vectors
+        with torch.no_grad():
+            for data in dataloader:
+                eegs, labels, _ = data
+                eegs = eegs.to(device)
+
+                actuals += labels.cpu().numpy().tolist()
+                features += self(eegs).cpu().numpy().tolist()
+
+        # tsne
+        tsne = TSNE(n_components=2, random_state=0)
+        cluster = np.array(tsne.fit_transform(np.array(features)))
+        actuals = np.array(actuals)
+
+        # make matplotlib figure
+        plt.figure(figsize=(16, 10))
+        for i in range(40):
+            idx = np.where(actuals == i)
+            plt.scatter(
+                cluster[idx, 0],
+                cluster[idx, 1],
+                marker=".",
+                label=ld.id_to_name[ld.lookup_dict[i]],
+            )
+        # plt.legend(bbox_to_anchor=(1.25, 0.6), loc="center left")
+        plt.legend()
+
+        # convert fig to tensor in order to log to tensorboard
+        import io
+        import PIL.Image
+        from torchvision.transforms import ToTensor
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="jpeg")
+        buf.seek(0)
+        img = ToTensor()(PIL.Image.open(buf))
+
+        # log to tensorboard
+        tb_logger = None
+        for logger in self.trainer.loggers:
+            if isinstance(logger, TensorBoardLogger):
+                tb_logger = logger.experiment
+                break
+        if tb_logger is None:
+            raise ValueError("TensorBoard Logger not found")
+        tb_logger.add_image(
+            "t-SNE manifold of LSTM feature extraction",
+            img,
+            self.current_epoch,
+        )
+
+        return
 
 
 ########################################################################
