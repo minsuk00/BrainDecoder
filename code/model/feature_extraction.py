@@ -162,7 +162,7 @@ class FeatureExtractorNN(L.LightningModule):
         self.log_dict({"train_acc_epoch": acc.item()})
 
         if config["tsne"]:
-            if self.current_epoch % config["tsne-interval"] == 0:
+            if self.current_epoch % config["tsne_interval"] == 0:
                 self.show_manifold()
 
     def validation_step(self, batch, batch_idx):
