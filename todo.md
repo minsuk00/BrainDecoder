@@ -19,7 +19,7 @@ NeuroImagen
 - write code for dataset and dataloader
 
 
-## Pixel level semantic
+## Pixel level semantics
 ### info
 Pixel-level semantics Extractor Mp
 - contrastive learning to learn feature extraction function 
@@ -40,3 +40,26 @@ Pixel-level semantics Extractor Mp
 - get good accuracy from contrastive loss
 - contrastive loss to cgan to get reasonable images
 - proceed
+
+## Sample level semantics
+### info
+- goal: derive some coarse-grained information such as the category of the main object
+- relatively easier to be aligned
+- extractor M<sub>s</sub>
+    1. image caption ground truth from additional annotation model (2 approaches)
+        1. use class name of image as caption (an image of ~) (because imagenet class anyways)
+        2. use BLIP. (with default pretrained parameters) This is more detailed than class name
+    2. align EEG embeddings to generated image caption
+        1. get latent embeddings of image caption using CLIP (h_hat)
+        2. align the output of EEG sample level encoder (h) with loss L2-norm squared of h-h_hat
+
+## Combine multi level semantics with Diffusion Model
+- used the latent diffusion model to perform image-to-image reconstructing with the guidance of conditional text prompt embeddings
+1. reconstruct pixel-level semantics G(fθ(x)) and resize it to the resolution of observed visual stimuli
+2. G(fθ(x)) is then processed by the encoder E<sub>ldm</sub> of autoencoder from the latent diffusion model and added noise through the diffusion process
+3. integrate sample-level semantics h<sub>clip</sub> as the cross-attention input of the U-Net to guide the denoising process
+4. project the output of the denoising process to image space with Dldm and finally reconstruct the high-quality image
+
+
+## Evaluation matrix
+..?
