@@ -257,7 +257,11 @@ class FeatureExtractorNN(L.LightningModule):
                 eegs = eegs.to(device)
 
                 actuals += labels.cpu().numpy().tolist()
-                features += self(eegs).cpu().numpy().tolist()
+                # for t-sne, use feature vector not classification.
+                lstm_out, _ = self.lstm(eegs)
+                tmp_out = lstm_out[:, -1, :]
+                out = self.output(tmp_out)
+                features += out.cpu().numpy().tolist()
 
         # tsne
         tsne = TSNE(n_components=2, random_state=0)
@@ -296,7 +300,7 @@ class FeatureExtractorNN(L.LightningModule):
         if tb_logger is None:
             raise ValueError("TensorBoard Logger not found")
         tb_logger.add_image(
-            "t-SNE manifold of LSTM feature extraction",
+            "t-SNE manifold of LSTM feature extraction (128 D feature vector)",
             img,
             self.current_epoch,
         )
