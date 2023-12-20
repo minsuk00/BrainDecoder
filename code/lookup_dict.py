@@ -41,7 +41,7 @@ id_to_name = {
     "n03063599": "coffee_mug",
 }
 
-lookup_dict = {
+idx_to_id = {
     0: "n02124075",
     "n02124075": 0,
     1: "n02504458",
@@ -123,3 +123,39 @@ lookup_dict = {
     39: "n03063599",
     "n03063599": 39,
 }
+
+
+def batch_idx_to_id(batch_indices):
+    """converts a tensor of indicies to a list of ids
+
+    Args:
+        batch_indices (tensor): indices from dataset
+
+    Returns:
+        list: id list
+    """
+
+    id_list = []
+
+    for idx in batch_indices:
+        id_list.append(idx_to_id[idx])
+
+    return id_list
+
+
+def batch_id_to_name(batch_ids):
+    """converst a list of ids to a list of names
+
+    Args:
+        batch_ids (list): list of ids from batch_idx_to_id
+
+    Returns:
+        list: list of name
+    """
+
+    name_list = []
+
+    for id in batch_ids:
+        name_list.append(id_to_name[id])
+
+    return name_list
