@@ -53,7 +53,7 @@ from pprint import pprint
 # sys.path.append(os.path.join(os.path.dirname(os.getcwd())))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__))))
 import dataset as D
-import lookup_dict as ld
+import lookup_dict as LD
 
 ########################################################################
 
@@ -272,7 +272,7 @@ class FeatureExtractorNN(L.LightningModule):
                 cluster[idx, 0],
                 cluster[idx, 1],
                 marker=".",
-                label=ld.id_to_name[ld.lookup_dict[i]],
+                label=LD.id_to_name[LD.idx_to_id[i]],
             )
         # plt.legend(bbox_to_anchor=(1.25, 0.6), loc="center left")
         plt.legend()
