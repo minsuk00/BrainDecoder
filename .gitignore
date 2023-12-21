@@ -2,19 +2,14 @@ __pycache__/
 dataset/
 lightning_logs/
 
-
 *.jpeg
 *.png
 *.pth
 
-
 # from mind-vis
-*.out
-*.npz
 *.ckpt
 *.DS_Store
 *.zip
 *.tar
-*.nii
 *.gz
 *.pth
