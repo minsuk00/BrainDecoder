@@ -3,5 +3,9 @@
     "python.analysis.extraPaths": [
         "./code/model",
         "./code"
-    ]
+    ],
+    "files.watcherExclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+    }
 }
