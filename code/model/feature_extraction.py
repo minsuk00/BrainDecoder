@@ -328,7 +328,7 @@ def train():
     )
 
     trainer = L.Trainer(
-        max_epochs=500,
+        max_epochs=751,
         callbacks=[lr_monitor],
         logger=logger,
         accelerator="gpu",
