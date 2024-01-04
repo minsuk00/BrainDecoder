@@ -168,13 +168,15 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="configs/stable-diffusion/v1-inference.yaml",
+        # default="configs/stable-diffusion/v1-inference.yaml",
+        default="/home/choi/BrainDecoder/pretrains/ldm/config.yaml",
         help="path to config which constructs model",
     )
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="models/ldm/stable-diffusion-v1/model.ckpt",
+        # default="models/ldm/stable-diffusion-v1/model.ckpt",
+        default="/home/choi/BrainDecoder/pretrains/ldm/v1-5-pruned.ckpt",
         help="path to checkpoint of model",
     )
     parser.add_argument(
