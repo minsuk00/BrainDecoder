@@ -14,7 +14,9 @@ eeg_dataset_path = os.path.join(dataset_path, "eeg")
 
 
 class EEGDataset(Dataset):
-    def __init__(self, eeg_dataset_file_name="eeg_5_95_std.pth") -> None:
+    def __init__(
+        self, eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth"
+    ) -> None:
         super().__init__()
         loaded = torch.load(os.path.join(eeg_dataset_path, eeg_dataset_file_name))
         self.data = loaded["dataset"]
