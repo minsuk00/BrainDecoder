@@ -8,9 +8,9 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor
 from lightning.pytorch.loggers import TensorBoardLogger
 
-import clip
+# import clip
 from lavis.models import load_model_and_preprocess
-
+from transformers import CLIPTokenizer, CLIPTextModel
 
 from PIL import Image
 import numpy as np
@@ -18,13 +18,23 @@ import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import io
 from datetime import datetime
+from pprint import pprint
 
 import sys
 import os
 
-# sys.path.append((os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-# import lookup_dict as LD
-# import dataset as D
+sys.path.append((os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import lookup_dict as LD
+import dataset as D
+
+root_path = "/home/choi/BrainDecoder/"
+dataset_path = os.path.join(root_path, "dataset")
+images_dataset_path = os.path.join(dataset_path, "imageNet_images")
+eeg_dataset_path = os.path.join(dataset_path, "eeg")
+
+tokenizer, transformer = None, None
+blip_model, vis_processors = None, None
+loaders = None
 
 config = {
     "batch_size": 16,
@@ -32,29 +42,18 @@ config = {
     "lr": 1e-3,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda_factor": 0.99,
+    "lambda_factor": 0.975,
     "weight_decay": 0,
     "lstm_layer": 3,
+    "lstm_hidden_size": 768,
     "tsne": True,
     "tsne_interval": 20,
     "use_blip": False,
+    "mlp": True,
+    "gpu_id": 1,
 }
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-# dataset = D.EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth")
-
-# loaders = {
-#     split: DataLoader(
-#         dataset=D.Splitter(dataset, split_name=split),
-#         batch_size=config["batch_size"],
-#         drop_last=True,
-#         shuffle=True if split == "train" else False,
-#         num_workers=23,
-#     )
-#     for split in ["train", "val", "test"]
-# }
+device = f"cuda:{config['gpu_id']}" if torch.cuda.is_available() else "cpu"
 
 
 class SampleLevelFeatureExtractorNN(L.LightningModule):
@@ -64,9 +63,11 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         # seed_everything(seed,workers=True)
 
         self.input_size = 128
-        self.hidden_size = 128
+        # self.hidden_size = 128
+        self.hidden_size = config["lstm_hidden_size"]
         self.lstm_layers = config["lstm_layer"]
         self.out_size = 768 * 77
+        # self.out_size = 768
 
         # self.lstm = nn.LSTM(input_size=128,hidden_size=128,num_layers=128)
         self.lstm = nn.LSTM(
@@ -76,6 +77,9 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
             batch_first=True,
         )
         self.output = nn.Sequential(
+            # nn.Linear(in_features=self.hidden_size, out_features=1000),
+            # nn.ReLU(),
+            # nn.Linear(in_features=768 * 30, out_features=self.out_size),
             nn.Linear(in_features=self.hidden_size, out_features=self.out_size),
             nn.ReLU(),
         )
@@ -85,7 +89,9 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
             # return torch.sum(torch.pow(torch.subtract(x1, x2), 2), dim=1)
             return torch.mean(torch.pow(torch.subtract(x1, x2), 2))
 
-        self.loss_fn = l2_squared
+        # self.loss_fn = l2_squared
+        self.loss_fn = nn.MSELoss()
+        self.cos = nn.CosineSimilarity()
 
         self.blip_caption_cache = {}
 
@@ -94,6 +100,7 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         tmp_out = lstm_out[:, -1, :]
         out = self.output(tmp_out)
         out = out.reshape(out.size(0), 77, 768)
+        # out = out.reshape(out.size(0), 1, 768)
 
         return out
 
@@ -103,14 +110,27 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         eegs = eegs.to(device)
         eeg_embeddings = self(eegs)
 
+        # get label clip embeddings
         labels = self.get_img_caption(labels, img_names, use_BLIP=config["use_blip"])
-        labels = clip.tokenize(labels).to(device)
+        # labels = clip.tokenize(labels).to(device)
+        batch_encoding = tokenizer(
+            labels,
+            truncation=True,
+            max_length=77,
+            return_length=True,
+            return_overflowing_tokens=False,
+            padding="max_length",
+            return_tensors="pt",
+        )
+        tokens = batch_encoding["input_ids"].to(device)
+        outputs = transformer(input_ids=tokens)
+
+        label_features = outputs.last_hidden_state
 
         # with torch.no_grad():
         #     label_features = clip_model.encode_text(labels)
 
-        # loss = self.loss_fn(eeg_embeddings, label_features)
-        loss = 0
+        loss = self.loss_fn(eeg_embeddings, label_features)
 
         self.log_dict(
             {
@@ -133,7 +153,7 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         )
         if config["tsne"]:
             if self.current_epoch % config["tsne_interval"] == 0:
-                self.show_manifold()
+                self.show_manifold(loaders["val"])
 
     def validation_step(self, batch, batch_idx):
         eegs, labels, img_names = batch
@@ -142,16 +162,29 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         eeg_features = self(eegs)
 
         labels = self.get_img_caption(labels, img_names, use_BLIP=config["use_blip"])
-        labels = clip.tokenize(labels).to(device)
+        # labels = clip.tokenize(labels).to(device)
+        batch_encoding = tokenizer(
+            labels,
+            truncation=True,
+            max_length=77,
+            return_length=True,
+            return_overflowing_tokens=False,
+            padding="max_length",
+            return_tensors="pt",
+        )
+        tokens = batch_encoding["input_ids"].to(device)
+        outputs = transformer(input_ids=tokens)
+
+        label_features = outputs.last_hidden_state
 
         # with torch.no_grad():
         #     label_features = clip_model.encode_text(labels)
 
-        # loss = self.loss_fn(eeg_features, label_features)
-        loss = 0
+        loss = self.loss_fn(eeg_features, label_features)
+        cos_sim = self.cos(eeg_features, label_features).mean()
 
         self.log_dict(
-            {"val_loss": loss},
+            {"val_loss": loss, "cos_sim": cos_sim},
             prog_bar=True,
             on_epoch=True,
             batch_size=config["batch_size"],
@@ -195,7 +228,165 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         return [optimizer], [scheduler]
         # return [optimizer]
 
+    def show_manifold(self, dataloader):
+        features = []
+        actuals = []
 
-# ckpt = "/home/choi/BrainDecoder/lightning_logs/SampleLevelFeatureExtraction/04:15_Adam_0.001_LambdaLR_weight-decay_0_lambda-factor_0.99/2023-12-21 04:15:42/checkpoints/epoch=405-step=201782.ckpt"
-# model = SampleLevelFeatureExtractorNN.load_from_checkpoint(ckpt)
-# model.to(device)
+        # calculate feature vectors
+        with torch.no_grad():
+            for data in dataloader:
+                eegs, labels, _ = data
+                batch_size = eegs.size(0)
+                eegs = eegs.to(device)
+
+                actuals += labels.cpu().numpy().tolist()
+                features += self(eegs).reshape(batch_size, -1).cpu().numpy().tolist()
+
+        # tsne
+        tsne = TSNE(n_components=2, random_state=0)
+        cluster = np.array(tsne.fit_transform(np.array(features)))
+        actuals = np.array(actuals)
+
+        # make matplotlib figure
+        plt.figure(figsize=(16, 10))
+        for i in range(40):
+            idx = np.where(actuals == i)
+            plt.scatter(
+                cluster[idx, 0],
+                cluster[idx, 1],
+                marker=".",
+                label=LD.id_to_name[LD.idx_to_id[i]],
+            )
+        # plt.legend(bbox_to_anchor=(1.25, 0.6), loc="center left")
+        plt.legend()
+
+        # convert fig to tensor in order to log to tensorboard
+        buf = io.BytesIO()
+        plt.savefig(buf, format="jpeg")
+        buf.seek(0)
+        img = ToTensor()(Image.open(buf))
+
+        # log to tensorboard
+        tb_logger = None
+        for logger in self.trainer.loggers:
+            if isinstance(logger, TensorBoardLogger):
+                tb_logger = logger.experiment
+                break
+        if tb_logger is None:
+            raise ValueError("TensorBoard Logger not found")
+        tb_logger.add_image(
+            "t-SNE manifold of sample level feature extraction",
+            img,
+            self.current_epoch,
+        )
+
+        return
+
+    def get_img_caption(self, labels, img_names, use_BLIP=False):
+        if use_BLIP:
+            # raw algorithm. no caching
+            # processed_imgs = []
+            # for img_name in img_names:
+            #     img_path = os.path.join(
+            #         images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
+            #     )
+            #     pil_img = Image.open(img_path).convert("RGB")
+            #     processed_img = vis_processors["eval"](pil_img).unsqueeze(0).to(device)
+            #     processed_imgs.append(processed_img)
+            # processed_imgs = torch.cat(processed_imgs)
+            # captions = blip_model.generate({"image": processed_imgs})
+
+            # caching
+            captions = []
+            for img_name in img_names:
+                if img_name in self.blip_caption_cache:
+                    captions.append(self.blip_caption_cache[img_name])
+                else:
+                    img_path = os.path.join(
+                        images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
+                    )
+                    pil_img = Image.open(img_path).convert("RGB")
+                    processed_img = (
+                        vis_processors["eval"](pil_img).unsqueeze(0).to(device)
+                    )
+                    caption = blip_model.generate({"image": processed_img})[0]
+                    captions.append(caption)
+                    self.blip_caption_cache[img_name] = caption
+        else:
+            prefix = "An image of "
+            labels = np.array(labels.cpu())
+            labels = LD.batch_idx_to_id(labels)
+            labels = LD.batch_id_to_name(labels)
+            captions = [prefix + label.replace("_", " ") for label in labels]
+
+        return captions
+
+
+def preload():
+    global tokenizer
+    global transformer
+
+    version = "openai/clip-vit-large-patch14"
+    tokenizer = CLIPTokenizer.from_pretrained(version)
+    transformer = CLIPTextModel.from_pretrained(version).to(device)
+
+    if config["use_blip"]:
+        global blip_model
+        global vis_processors
+
+        blip_model, vis_processors, _ = load_model_and_preprocess(
+            name="blip_caption",
+            model_type="base_coco",
+            is_eval=True,
+            device=device,
+        )
+
+    global loaders
+    dataset = D.EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth")
+
+    loaders = {
+        split: DataLoader(
+            dataset=D.Splitter(dataset, split_name=split),
+            batch_size=config["batch_size"],
+            drop_last=True,
+            shuffle=True if split == "train" else False,
+            num_workers=23,
+        )
+        for split in ["train", "val", "test"]
+    }
+
+
+def train():
+    model = SampleLevelFeatureExtractorNN()
+    model.to(device)
+    print("======================")
+    pprint(config)
+    print("======================")
+
+    # now = datetime.now()
+    # now_hm = now.strftime("%H:%M")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    logger = TensorBoardLogger(
+        save_dir="/home/choi/BrainDecoder/lightning_logs/SampleLevelFeatureExtraction",
+        name=f"{now}",
+        version=f"{config['optimizer']}_{config['lr']}_{config['scheduler']}_weight-decay_{config['weight_decay']}_lambda-factor_{config['lambda_factor']}_use-blip_{config['use_blip']}_mlp_{config['mlp']}_lstmHiddenSize_{config['lstm_hidden_size']}",
+    )
+
+    lr_monitor = LearningRateMonitor(logging_interval="epoch")
+
+    trainer = L.Trainer(
+        max_epochs=500,
+        logger=logger,
+        callbacks=[lr_monitor],
+        accelerator="gpu",
+        devices=[config["gpu_id"]],
+    )
+    trainer.fit(
+        model, train_dataloaders=loaders["train"], val_dataloaders=loaders["val"]
+    )
+
+
+if __name__ == "__main__":
+    preload()
+    train()
