@@ -211,8 +211,8 @@ def parseArgs():
     parser.add_argument(
         "--scale",
         type=float,
-        # default=7.5,
-        default=1,
+        default=7.5,
+        # default=1,
         help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty))",
     )
     parser.add_argument(
@@ -260,8 +260,8 @@ def main():
         opt.ckpt = "models/ldm/text2img-large/model.ckpt"
         opt.outdir = "outputs/txt2img-samples-laion400m"
 
-    seed_everything(opt.seed)
-    # seed_everything(torch.randint(0, 100, ()))
+    # seed_everything(opt.seed)
+    seed_everything(torch.randint(0, 100, ()))
 
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
@@ -311,6 +311,7 @@ def main():
     precision_scope = autocast if opt.precision == "autocast" else nullcontext
 
     ############# Custom code
+    # ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=186-step=92939.ckpt"
     ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=188-step=93933 copy.ckpt"
     sampleLevelFeatureExtractor = SampleLevelFeatureExtractorNN.load_from_checkpoint(
         ckpt
@@ -339,9 +340,12 @@ def main():
                         eeg = eeg.unsqueeze(0)
                         eeg = eeg.to(device)
                         cond = sampleLevelFeatureExtractor(eeg)
+
                         print(
                             f"############# Label: {LD.id_to_name[LD.idx_to_id[label]]} #############"
                         )
+
+                        cond = torch.randn(size=[1, 77, 768], device=device)
 
                         shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
                         samples_ddim, _ = sampler.sample(

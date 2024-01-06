@@ -119,7 +119,7 @@ class EEGImageDataset(Dataset):
 
         # read img
         img_path = os.path.join(
-            images_dataset_path, img_name.split("_")[0], img_name + ".jpeg"
+            images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
         )
         img = Image.open(img_path).convert("RGB")
         # img = cv2.imread(img_path)

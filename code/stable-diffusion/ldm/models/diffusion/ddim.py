@@ -263,6 +263,22 @@ class DDIMSampler(object):
         unconditional_guidance_scale=1.0,
         unconditional_conditioning=None,
     ):
+        # print("x", x),
+        # print("x shape", x.shape),
+        # print("cond shape", cond.shape),
+        # print("t", t),
+        # print("index", index),
+        # print("repeat_noise", repeat_noise)
+        # print("use_original_steps", use_original_steps)
+        # print("quantize_denoised", quantize_denoised)
+        # print("temperature", temperature)
+        # print("noise_dropout", noise_dropout)
+        # print("score_corrector", score_corrector)
+        # print("corrector_kwargs", corrector_kwargs)
+        # print("unconditional_guidance_scale", unconditional_guidance_scale)
+        # print("unconditional_conditioning", unconditional_conditioning)
+        # print("unconditional_conditioning shape", unconditional_conditioning.shape)
+
         b, *_, device = *x.shape, x.device
 
         if unconditional_conditioning is None or unconditional_guidance_scale == 1.0:
