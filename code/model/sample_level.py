@@ -20,8 +20,10 @@ import io
 from datetime import datetime
 from pprint import pprint
 
+import argparse
 import sys
 import os
+import json
 
 sys.path.append((os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import lookup_dict as LD
@@ -42,15 +44,22 @@ config = {
     "lr": 1e-3,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda_factor": 0.975,
+    "lambda_factor": 0.999,
+    # "lambda_factor": 1,
     "weight_decay": 0,
     "lstm_layer": 3,
-    "lstm_hidden_size": 768,
-    "tsne": True,
+    "lstm_hidden_size": 128,
+    "tsne": False,
     "tsne_interval": 20,
     "use_blip": False,
     "mlp": True,
-    "gpu_id": 1,
+    "mlp_layers_1": 128,
+    "mlp_layers_2": 256,
+    "mlp_layers_3": 512,
+    "mlp_layers_4": 512,
+    "mlp_layers_5": 1024,
+    "gpu_id": 2,
+    "ckpt": "None",
 }
 
 device = f"cuda:{config['gpu_id']}" if torch.cuda.is_available() else "cpu"
@@ -77,10 +86,28 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
             batch_first=True,
         )
         self.output = nn.Sequential(
-            # nn.Linear(in_features=self.hidden_size, out_features=1000),
-            # nn.ReLU(),
-            # nn.Linear(in_features=768 * 30, out_features=self.out_size),
-            nn.Linear(in_features=self.hidden_size, out_features=self.out_size),
+            nn.Linear(
+                in_features=self.hidden_size, out_features=config["mlp_layers_1"]
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                in_features=config["mlp_layers_1"], out_features=config["mlp_layers_2"]
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                in_features=config["mlp_layers_2"], out_features=config["mlp_layers_3"]
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                in_features=config["mlp_layers_3"], out_features=config["mlp_layers_4"]
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                in_features=config["mlp_layers_4"], out_features=config["mlp_layers_5"]
+            ),
+            nn.ReLU(),
+            nn.Linear(in_features=config["mlp_layers_5"], out_features=self.out_size),
+            # nn.Linear(in_features=self.hidden_size, out_features=self.out_size),
             nn.ReLU(),
         )
 
@@ -104,7 +131,7 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
 
         return out
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, _):
         eegs, labels, img_names = batch
 
         eegs = eegs.to(device)
@@ -112,7 +139,6 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
 
         # get label clip embeddings
         labels = self.get_img_caption(labels, img_names, use_BLIP=config["use_blip"])
-        # labels = clip.tokenize(labels).to(device)
         batch_encoding = tokenizer(
             labels,
             truncation=True,
@@ -357,11 +383,14 @@ def preload():
 
 
 def train():
+    # if config["ckpt"] != "None":
+    # model = SampleLevelFeatureExtractorNN.load_from_checkpoint(config["ckpt"])
+    # else:
     model = SampleLevelFeatureExtractorNN()
     model.to(device)
-    print("======================")
+    print("===========================")
     pprint(config)
-    print("======================")
+    print("===========================")
 
     # now = datetime.now()
     # now_hm = now.strftime("%H:%M")
@@ -370,23 +399,61 @@ def train():
     logger = TensorBoardLogger(
         save_dir="/home/choi/BrainDecoder/lightning_logs/SampleLevelFeatureExtraction",
         name=f"{now}",
-        version=f"{config['optimizer']}_{config['lr']}_{config['scheduler']}_weight-decay_{config['weight_decay']}_lambda-factor_{config['lambda_factor']}_use-blip_{config['use_blip']}_mlp_{config['mlp']}_lstmHiddenSize_{config['lstm_hidden_size']}",
+        version="version",
     )
 
-    lr_monitor = LearningRateMonitor(logging_interval="epoch")
+    # Writing to sample.json
+    os.makedirs(
+        f"/home/choi/BrainDecoder/lightning_logs/SampleLevelFeatureExtraction/{now}/version",
+        exist_ok=True,
+    )
+    # Serializing json
+    config_json = json.dumps(config, indent=4)
+    with open(
+        f"/home/choi/BrainDecoder/lightning_logs/SampleLevelFeatureExtraction/{now}/version/config.json",
+        "w+",
+    ) as outfile:
+        outfile.write(config_json)
 
+    lr_monitor = LearningRateMonitor(logging_interval="epoch")
     trainer = L.Trainer(
-        max_epochs=500,
+        max_epochs=1000,
         logger=logger,
         callbacks=[lr_monitor],
         accelerator="gpu",
         devices=[config["gpu_id"]],
     )
-    trainer.fit(
-        model, train_dataloaders=loaders["train"], val_dataloaders=loaders["val"]
+    if config["ckpt"] != "None":
+        trainer.fit(
+            model,
+            train_dataloaders=loaders["train"],
+            val_dataloaders=loaders["val"],
+            ckpt_path=config["ckpt"],
+        )
+    else:
+        trainer.fit(
+            model, train_dataloaders=loaders["train"], val_dataloaders=loaders["val"]
+        )
+
+
+def parseArgs():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-C",
+        "--ckpt",
+        type=str,
+        default="None",
     )
+
+    args = parser.parse_args()
+
+    if args.ckpt != "None":
+        config["ckpt"] = args.ckpt
 
 
 if __name__ == "__main__":
+    print(f"Running on {device}...")
+    parseArgs()
     preload()
     train()
