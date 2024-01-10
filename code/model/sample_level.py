@@ -42,6 +42,7 @@ config = {
     "batch_size": 16,
     "optimizer": "Adam",  # ("Adam", "AdamW", "SGD")
     "lr": 1e-3,
+    # "lr": 1e-4 * 75,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
     "lambda_factor": 0.999,
@@ -60,6 +61,7 @@ config = {
     "mlp_layers_5": 1024,
     "gpu_id": 2,
     "ckpt": "None",
+    "loss_fn": "mse",  # "mse" or "cos_sim"
 }
 
 device = f"cuda:{config['gpu_id']}" if torch.cuda.is_available() else "cpu"
@@ -75,8 +77,8 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         # self.hidden_size = 128
         self.hidden_size = config["lstm_hidden_size"]
         self.lstm_layers = config["lstm_layer"]
-        self.out_size = 768 * 77
-        # self.out_size = 768
+        # self.out_size = 768 * 77
+        self.out_size = 768
 
         # self.lstm = nn.LSTM(input_size=128,hidden_size=128,num_layers=128)
         self.lstm = nn.LSTM(
@@ -117,7 +119,8 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
             return torch.mean(torch.pow(torch.subtract(x1, x2), 2))
 
         # self.loss_fn = l2_squared
-        self.loss_fn = nn.MSELoss()
+        self.loss_fn = self.get_loss_function()
+        # self.loss_fn = nn.MSELoss()
         self.cos = nn.CosineSimilarity()
 
         self.blip_caption_cache = {}
@@ -126,7 +129,7 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         lstm_out, _ = self.lstm(input)
         tmp_out = lstm_out[:, -1, :]
         out = self.output(tmp_out)
-        out = out.reshape(out.size(0), 77, 768)
+        # out = out.reshape(out.size(0), 77, 768)
         # out = out.reshape(out.size(0), 1, 768)
 
         return out
@@ -152,6 +155,9 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         outputs = transformer(input_ids=tokens)
 
         label_features = outputs.last_hidden_state
+        label_features = label_features[
+            torch.arange(label_features.shape[0]), tokens.argmax(dim=-1)
+        ]
 
         # with torch.no_grad():
         #     label_features = clip_model.encode_text(labels)
@@ -202,6 +208,9 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         outputs = transformer(input_ids=tokens)
 
         label_features = outputs.last_hidden_state
+        label_features = label_features[
+            torch.arange(label_features.shape[0]), tokens.argmax(dim=-1)
+        ]
 
         # with torch.no_grad():
         #     label_features = clip_model.encode_text(labels)
@@ -347,6 +356,15 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
 
         return captions
 
+    def get_loss_function(self):
+        if config["loss_fn"] == "mse":
+            return nn.MSELoss()
+        elif config["loss_fn"] == "cos_sim":
+            return nn.CosineEmbeddingLoss()
+            # return nn.CosineSimilarity().mean()
+        else:
+            raise Exception("Invalid loss function")
+
 
 def preload():
     global tokenizer
@@ -383,10 +401,10 @@ def preload():
 
 
 def train():
-    # if config["ckpt"] != "None":
-    # model = SampleLevelFeatureExtractorNN.load_from_checkpoint(config["ckpt"])
-    # else:
-    model = SampleLevelFeatureExtractorNN()
+    if config["ckpt"] != "None":
+        model = SampleLevelFeatureExtractorNN.load_from_checkpoint(config["ckpt"])
+    else:
+        model = SampleLevelFeatureExtractorNN()
     model.to(device)
     print("===========================")
     pprint(config)
@@ -423,7 +441,8 @@ def train():
         accelerator="gpu",
         devices=[config["gpu_id"]],
     )
-    if config["ckpt"] != "None":
+    # if config["ckpt"] != "None":
+    if False:
         trainer.fit(
             model,
             train_dataloaders=loaders["train"],
@@ -432,7 +451,9 @@ def train():
         )
     else:
         trainer.fit(
-            model, train_dataloaders=loaders["train"], val_dataloaders=loaders["val"]
+            model,
+            train_dataloaders=loaders["train"],
+            val_dataloaders=loaders["val"],
         )
 
 

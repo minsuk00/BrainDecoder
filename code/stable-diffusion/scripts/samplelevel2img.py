@@ -247,6 +247,7 @@ def parseArgs():
         choices=["full", "autocast"],
         default="autocast",
     )
+    parser.add_argument("--sampleckpt", type=str, default="None")
     opt = parser.parse_args()
     return opt
 
@@ -312,10 +313,13 @@ def main():
 
     ############# Custom code
     # ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=186-step=92939.ckpt"
-    ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=188-step=93933 copy.ckpt"
-    sampleLevelFeatureExtractor = SampleLevelFeatureExtractorNN.load_from_checkpoint(
-        ckpt
-    )
+    ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=745-step=370762.ckpt"
+    if opt.sampleckpt == "None":
+        sampleLevelFeatureExtractor = SampleLevelFeatureExtractorNN()
+    else:
+        sampleLevelFeatureExtractor = (
+            SampleLevelFeatureExtractorNN.load_from_checkpoint(ckpt)
+        )
     sampleLevelFeatureExtractor.to(device)
     dataset = D.EEGDataset()
     #############
@@ -327,15 +331,15 @@ def main():
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling"):
                     for prompts in tqdm(data, desc="data"):
-                        uc = None
-                        if opt.scale != 1.0:
-                            uc = model.get_learned_conditioning(batch_size * [""])
-                        if isinstance(prompts, tuple):
-                            prompts = list(prompts)
+                        # uc = None
+                        # if opt.scale != 1.0:
+                        # uc = model.get_learned_conditioning(batch_size * [""])
+                        # if isinstance(prompts, tuple):
+                        # prompts = list(prompts)
 
-                        cond = model.get_learned_conditioning(prompts)
+                        # cond = model.get_learned_conditioning(prompts)
                         ### custom conditioning
-                        data_idx = 0
+                        data_idx = np.random.randint(dataset.__len__())
                         eeg, label, _ = dataset.__getitem__(data_idx)
                         eeg = eeg.unsqueeze(0)
                         eeg = eeg.to(device)
@@ -354,10 +358,10 @@ def main():
                             batch_size=opt.n_samples,
                             shape=shape,
                             verbose=False,
-                            unconditional_guidance_scale=opt.scale,
-                            unconditional_conditioning=uc,
-                            eta=opt.ddim_eta,
-                            x_T=start_code,
+                            # unconditional_guidance_scale=opt.scale,
+                            # unconditional_conditioning=uc,
+                            # eta=opt.ddim_eta,
+                            # x_T=start_code,
                         )
 
                         x_samples_ddim = model.decode_first_stage(samples_ddim)
