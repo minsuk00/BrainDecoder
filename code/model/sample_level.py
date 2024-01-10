@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 
 import lightning as L
-from lightning.pytorch.callbacks import LearningRateMonitor
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
 # import clip
@@ -48,17 +48,17 @@ config = {
     "lambda_factor": 0.999,
     # "lambda_factor": 1,
     "weight_decay": 0,
-    "lstm_layer": 3,
+    "lstm_layer": 2,
     "lstm_hidden_size": 128,
     "tsne": False,
     "tsne_interval": 20,
     "use_blip": False,
-    "mlp": True,
-    "mlp_layers_1": 128,
-    "mlp_layers_2": 256,
-    "mlp_layers_3": 512,
-    "mlp_layers_4": 512,
-    "mlp_layers_5": 1024,
+    # "mlp": True,
+    # "mlp_layers_1": 128,
+    # "mlp_layers_2": 256,
+    # "mlp_layers_3": 512,
+    # "mlp_layers_4": 512,
+    # "mlp_layers_5": 512,
     "gpu_id": 2,
     "ckpt": "None",
     "loss_fn": "mse",  # "mse" or "cos_sim"
@@ -88,28 +88,28 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
             batch_first=True,
         )
         self.output = nn.Sequential(
-            nn.Linear(
-                in_features=self.hidden_size, out_features=config["mlp_layers_1"]
-            ),
-            nn.ReLU(),
-            nn.Linear(
-                in_features=config["mlp_layers_1"], out_features=config["mlp_layers_2"]
-            ),
-            nn.ReLU(),
-            nn.Linear(
-                in_features=config["mlp_layers_2"], out_features=config["mlp_layers_3"]
-            ),
-            nn.ReLU(),
-            nn.Linear(
-                in_features=config["mlp_layers_3"], out_features=config["mlp_layers_4"]
-            ),
-            nn.ReLU(),
-            nn.Linear(
-                in_features=config["mlp_layers_4"], out_features=config["mlp_layers_5"]
-            ),
-            nn.ReLU(),
-            nn.Linear(in_features=config["mlp_layers_5"], out_features=self.out_size),
-            # nn.Linear(in_features=self.hidden_size, out_features=self.out_size),
+            # nn.Linear(
+            #     in_features=self.hidden_size, out_features=config["mlp_layers_1"]
+            # ),
+            # nn.ReLU(),
+            # nn.Linear(
+            #     in_features=config["mlp_layers_1"], out_features=config["mlp_layers_2"]
+            # ),
+            # nn.ReLU(),
+            # nn.Linear(
+            #     in_features=config["mlp_layers_2"], out_features=config["mlp_layers_3"]
+            # ),
+            # nn.ReLU(),
+            # nn.Linear(
+            #     in_features=config["mlp_layers_3"], out_features=config["mlp_layers_4"]
+            # ),
+            # nn.ReLU(),
+            # nn.Linear(
+            #     in_features=config["mlp_layers_4"], out_features=config["mlp_layers_5"]
+            # ),
+            # nn.ReLU(),
+            # nn.Linear(in_features=config["mlp_layers_5"], out_features=self.out_size),
+            nn.Linear(in_features=self.hidden_size, out_features=self.out_size),
             nn.ReLU(),
         )
 
@@ -434,27 +434,35 @@ def train():
         outfile.write(config_json)
 
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
+    ckpt_callback = ModelCheckpoint(
+        save_top_k=2,
+        monitor="val_loss",
+        mode="min",
+        save_last=True,
+        filename="{epoch}_{val_loss:.4f}",
+    )
     trainer = L.Trainer(
         max_epochs=1000,
         logger=logger,
-        callbacks=[lr_monitor],
+        callbacks=[lr_monitor, ckpt_callback],
         accelerator="gpu",
         devices=[config["gpu_id"]],
     )
+
     # if config["ckpt"] != "None":
-    if False:
-        trainer.fit(
-            model,
-            train_dataloaders=loaders["train"],
-            val_dataloaders=loaders["val"],
-            ckpt_path=config["ckpt"],
-        )
-    else:
-        trainer.fit(
-            model,
-            train_dataloaders=loaders["train"],
-            val_dataloaders=loaders["val"],
-        )
+    #     trainer.fit(
+    #         model,
+    #         train_dataloaders=loaders["train"],
+    #         val_dataloaders=loaders["val"],
+    #         ckpt_path=config["ckpt"],
+    #     )
+    # else:
+
+    trainer.fit(
+        model,
+        train_dataloaders=loaders["train"],
+        val_dataloaders=loaders["val"],
+    )
 
 
 def parseArgs():

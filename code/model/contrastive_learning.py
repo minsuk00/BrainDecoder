@@ -36,6 +36,22 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 from dataset import EEGDataset, Splitter
 
+config = {
+    "optimizer": "Adam",  # ("Adam", "AdamW", "SGD")
+    "lr": 1e-3,
+    "betas": (0.9, 0.999),
+    "scheduler": "LambdaLR",
+    # "scheduler": "None",
+    "lambda-factor": 1.0,
+    # "lambda-factor": "None",
+    "weight-decay": 0,
+    "margin": 10.0,
+    "lstm-layer": 3,
+    "batch-size": 16,
+    "tsne": False,
+    "tsne-interval": 10,
+}
+
 
 def setup_dataloaders():
     dataset = EEGDataset(eeg_dataset_file_name="eeg_5_95_std.pth")
