@@ -63,3 +63,16 @@ Pixel-level semantics Extractor Mp
 
 ## Evaluation matrix
 ..?
+
+
+- cond stage model get learned conditioning return c, re_latent??
+
+- understand dreamdiffusion's approach to encode eeg
+- try classifier?
+- read different approaches to encode eeg
+
+
+참고:
+- EEG2IMAGE for pixel level generation
+
+
