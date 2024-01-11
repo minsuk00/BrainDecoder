@@ -313,12 +313,12 @@ def main():
 
     ############# Custom code
     # ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=186-step=92939.ckpt"
-    ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=745-step=370762.ckpt"
+    # ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=192-step=95921 copy.ckpt"
     if opt.sampleckpt == "None":
         sampleLevelFeatureExtractor = SampleLevelFeatureExtractorNN()
     else:
         sampleLevelFeatureExtractor = (
-            SampleLevelFeatureExtractorNN.load_from_checkpoint(ckpt)
+            SampleLevelFeatureExtractorNN.load_from_checkpoint(opt.sampleckpt)
         )
     sampleLevelFeatureExtractor.to(device)
     dataset = D.EEGDataset()

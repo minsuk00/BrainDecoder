@@ -76,3 +76,6 @@ Pixel-level semantics Extractor Mp
 - EEG2IMAGE for pixel level generation
 
 
+
+
+- semi hard triplet mining

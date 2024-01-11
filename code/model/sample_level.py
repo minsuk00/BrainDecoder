@@ -19,7 +19,6 @@ from sklearn.manifold import TSNE
 import io
 from datetime import datetime
 from pprint import pprint
-
 import argparse
 import sys
 import os
@@ -37,6 +36,7 @@ eeg_dataset_path = os.path.join(dataset_path, "eeg")
 tokenizer, transformer = None, None
 blip_model, vis_processors = None, None
 loaders = None
+device = None
 
 config = {
     "batch_size": 16,
@@ -45,7 +45,7 @@ config = {
     # "lr": 1e-4 * 75,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda_factor": 0.999,
+    "lambda_factor": 0.975,
     # "lambda_factor": 1,
     "weight_decay": 0,
     "lstm_layer": 2,
@@ -63,8 +63,6 @@ config = {
     "ckpt": "None",
     "loss_fn": "mse",  # "mse" or "cos_sim"
 }
-
-device = f"cuda:{config['gpu_id']}" if torch.cuda.is_available() else "cpu"
 
 
 class SampleLevelFeatureExtractorNN(L.LightningModule):
@@ -369,6 +367,10 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
 def preload():
     global tokenizer
     global transformer
+    global device
+
+    device = f"cuda:{config['gpu_id']}" if torch.cuda.is_available() else "cpu"
+    print(f"Running on {device}...")
 
     version = "openai/clip-vit-large-patch14"
     tokenizer = CLIPTokenizer.from_pretrained(version)
@@ -394,7 +396,8 @@ def preload():
             batch_size=config["batch_size"],
             drop_last=True,
             shuffle=True if split == "train" else False,
-            num_workers=23,
+            num_workers=8,
+            pin_memory=True,
         )
         for split in ["train", "val", "test"]
     }
@@ -406,13 +409,12 @@ def train():
     else:
         model = SampleLevelFeatureExtractorNN()
     model.to(device)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     print("===========================")
     pprint(config)
+    print(now)
     print("===========================")
-
-    # now = datetime.now()
-    # now_hm = now.strftime("%H:%M")
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     logger = TensorBoardLogger(
         save_dir="/home/choi/BrainDecoder/lightning_logs/SampleLevelFeatureExtraction",
@@ -482,7 +484,6 @@ def parseArgs():
 
 
 if __name__ == "__main__":
-    print(f"Running on {device}...")
     parseArgs()
     preload()
     train()
