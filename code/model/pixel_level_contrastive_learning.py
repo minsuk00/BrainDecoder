@@ -36,13 +36,13 @@ config = {
     "weight-decay": 0,
     "margin": 1.0,
     "lstm-layer": 2,
-    "lstm_hidden_size": 128,
+    "lstm-hidden-size": 128,
     "batch-size": 16,
     "tsne": False,
     "tsne-interval": 10,
     "ckpt": "None",
-    "gpu_id": 1,
-    "use_online_hard_triplet": True,
+    "gpu-id": 1,
+    "use-online-hard-triplet": True,
 }
 
 
@@ -61,7 +61,7 @@ class PixelLevelFeatureExtractorNN(L.LightningModule):
 
         # model
         self.input_size = 128
-        self.hidden_size = config["lstm_hidden_size"]
+        self.hidden_size = config["lstm-hidden-size"]
         self.lstm_layers = config["lstm-layer"]
         self.out_size = 128
 
@@ -154,7 +154,7 @@ class PixelLevelFeatureExtractorNN(L.LightningModule):
         return triplet_loss
 
     def training_step(self, batch, _):
-        if config["use_online_hard_triplet"]:
+        if config["use-online-hard-triplet"]:
             loss = self.shared_step_online_hard_triplet_mining(batch)
         else:
             loss = self.shared_step(batch, "train")
@@ -171,7 +171,7 @@ class PixelLevelFeatureExtractorNN(L.LightningModule):
         return loss
 
     def validation_step(self, batch, _):
-        if config["use_online_hard_triplet"]:
+        if config["use-online-hard-triplet"]:
             loss = self.shared_step_online_hard_triplet_mining(batch)
         else:
             loss = self.shared_step(batch, "val")
@@ -265,7 +265,7 @@ def train():
         logger=logger,
         callbacks=[lr_monitor, ckpt_callback],
         accelerator="gpu",
-        devices=[config["gpu_id"]],
+        devices=[config["gpu-id"]],
     )
 
     # if config["ckpt"] != "None":
@@ -288,7 +288,7 @@ def preload():
     global device
     global loaders
 
-    device = f"cuda:{config['gpu_id']}" if torch.cuda.is_available() else "cpu"
+    device = f"cuda:{config['gpu-id']}" if torch.cuda.is_available() else "cpu"
     print(f"Running on {device}...")
 
     dataset = EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth")
@@ -332,7 +332,7 @@ def parseArgs():
     if args.lr != 1e-3:
         config["lr"] = args.lr
     if args.useofflinetriplet:
-        config["use_online_hard_triplet"] = False
+        config["use-online-hard-triplet"] = False
 
 
 if __name__ == "__main__":

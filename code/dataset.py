@@ -110,22 +110,28 @@ class EEGImageDataset(Dataset):
         super().__init__()
         self.dataset = dataset
         self.transform = transform
+        self.img_dict = {}
 
     def __len__(self):
         return self.dataset.__len__()
 
     def __getitem__(self, idx):
-        eeg, _, img_name = self.dataset[idx]
+        eeg, label, img_name = self.dataset[idx]
 
-        # read img
-        img_path = os.path.join(
-            images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
-        )
-        img = Image.open(img_path).convert("RGB")
-        # img = cv2.imread(img_path)
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if img_name in self.img_dict:
+            img = self.img_dict[img_name]
+        else:
+            # read img
+            img_path = os.path.join(
+                images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
+            )
+            img = Image.open(img_path).convert("RGB")
+            # img = Image.open(img_path)
+            # img.draft("RGB", (128, 128))
+            # img = img.load()
+            self.img_dict[img_name] = img
 
         if self.transform:
             img = self.transform(img)
 
-        return eeg, img
+        return eeg, label, img

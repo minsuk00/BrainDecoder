@@ -337,19 +337,22 @@ def main():
                         # if isinstance(prompts, tuple):
                         # prompts = list(prompts)
 
-                        # cond = model.get_learned_conditioning(prompts)
-                        ### custom conditioning
-                        data_idx = np.random.randint(dataset.__len__())
-                        eeg, label, _ = dataset.__getitem__(data_idx)
-                        eeg = eeg.unsqueeze(0)
-                        eeg = eeg.to(device)
-                        cond = sampleLevelFeatureExtractor(eeg)
+                        cond = model.get_learned_conditioning(prompts)
+                        ## custom conditioning
+                        # data_idx = np.random.randint(dataset.__len__())
+                        # eeg, label, _ = dataset.__getitem__(data_idx)
+                        # eeg = eeg.unsqueeze(0)
+                        # eeg = eeg.to(device)
+                        # cond = sampleLevelFeatureExtractor(eeg)
+                        # cond = cond.unsqueeze(0)
+                        # print("cond", cond)
+                        # print(cond.shape)
 
-                        print(
-                            f"############# Label: {LD.id_to_name[LD.idx_to_id[label]]} #############"
-                        )
+                        # print(
+                        #     f"############# Label: {LD.id_to_name[LD.idx_to_id[label]]} #############"
+                        # )
 
-                        cond = torch.randn(size=[1, 77, 768], device=device)
+                        # cond = torch.randn(size=[1, 77, 768], device=device)
 
                         shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
                         samples_ddim, _ = sampler.sample(

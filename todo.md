@@ -79,3 +79,8 @@ Pixel-level semantics Extractor Mp
 
 
 - semi hard triplet mining
+
+- save images during iteration
+- caching images in dataloader
+
+- pixel level feature extraction 거의 0임.
