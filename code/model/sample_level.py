@@ -39,13 +39,13 @@ loaders = None
 device = None
 
 config = {
-    "batch_size": 16,
+    "batch_size": 256,
     "optimizer": "Adam",  # ("Adam", "AdamW", "SGD")
     "lr": 1e-3,
     # "lr": 1e-4 * 75,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda_factor": 0.975,
+    "lambda_factor": 0.999,
     # "lambda_factor": 1,
     "weight_decay": 0,
     "lstm_layer": 2,
@@ -53,15 +53,16 @@ config = {
     "tsne": False,
     "tsne_interval": 20,
     "use_blip": False,
-    # "mlp": True,
-    # "mlp_layers_1": 128,
+    "mlp": True,
+    "mlp_layers_1": 2056,
     # "mlp_layers_2": 256,
     # "mlp_layers_3": 512,
     # "mlp_layers_4": 512,
     # "mlp_layers_5": 512,
-    "gpu_id": 2,
+    "gpu_id": 1,
     "ckpt": "None",
     "loss_fn": "mse",  # "mse" or "cos_sim"
+    "out_size": 768 * 77,
 }
 
 
@@ -75,8 +76,9 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         # self.hidden_size = 128
         self.hidden_size = config["lstm_hidden_size"]
         self.lstm_layers = config["lstm_layer"]
+        self.out_size = config["out_size"]
         # self.out_size = 768 * 77
-        self.out_size = 768
+        # self.out_size = 768
 
         # self.lstm = nn.LSTM(input_size=128,hidden_size=128,num_layers=128)
         self.lstm = nn.LSTM(
@@ -86,10 +88,11 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
             batch_first=True,
         )
         self.output = nn.Sequential(
-            # nn.Linear(
-            #     in_features=self.hidden_size, out_features=config["mlp_layers_1"]
-            # ),
-            # nn.ReLU(),
+            nn.Linear(
+                in_features=self.hidden_size, out_features=config["mlp_layers_1"]
+            ),
+            nn.ReLU(),
+            nn.Linear(in_features=config["mlp_layers_1"], out_features=self.out_size),
             # nn.Linear(
             #     in_features=config["mlp_layers_1"], out_features=config["mlp_layers_2"]
             # ),
@@ -107,8 +110,8 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
             # ),
             # nn.ReLU(),
             # nn.Linear(in_features=config["mlp_layers_5"], out_features=self.out_size),
-            nn.Linear(in_features=self.hidden_size, out_features=self.out_size),
-            nn.ReLU(),
+            # nn.Linear(in_features=self.hidden_size, out_features=self.out_size),
+            # nn.LeakyReLU(0.1),
         )
 
         # self.loss_fn = nn.CrossEntropyLoss()
@@ -127,7 +130,7 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         lstm_out, _ = self.lstm(input)
         tmp_out = lstm_out[:, -1, :]
         out = self.output(tmp_out)
-        # out = out.reshape(out.size(0), 77, 768)
+        out = out.reshape(out.size(0), 77, 768)
         # out = out.reshape(out.size(0), 1, 768)
 
         return out
@@ -153,9 +156,9 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         outputs = transformer(input_ids=tokens)
 
         label_features = outputs.last_hidden_state
-        label_features = label_features[
-            torch.arange(label_features.shape[0]), tokens.argmax(dim=-1)
-        ]
+        # label_features = label_features[
+        #     torch.arange(label_features.shape[0]), tokens.argmax(dim=-1)
+        # ]
 
         # with torch.no_grad():
         #     label_features = clip_model.encode_text(labels)
@@ -206,9 +209,9 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         outputs = transformer(input_ids=tokens)
 
         label_features = outputs.last_hidden_state
-        label_features = label_features[
-            torch.arange(label_features.shape[0]), tokens.argmax(dim=-1)
-        ]
+        # label_features = label_features[
+        #     torch.arange(label_features.shape[0]), tokens.argmax(dim=-1)
+        # ]
 
         # with torch.no_grad():
         #     label_features = clip_model.encode_text(labels)

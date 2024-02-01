@@ -713,9 +713,9 @@ class LatentDiffusion(DDPM):
         print("##################")
         print("c", c)
         print("c shape", c.shape)
-        a, b = c
-        print("a,b", a, b)
-        print("a,b", a.shape, b.shape)
+        # a, b = c
+        # print("a,b", a, b)
+        # print("a,b", a.shape, b.shape)
         return c
 
     def meshgrid(self, h, w):

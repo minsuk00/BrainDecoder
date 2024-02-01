@@ -315,8 +315,10 @@ def main():
     # ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=186-step=92939.ckpt"
     # ckpt = "/home/choi/BrainDecoder/code/stable-diffusion/scripts/epoch=192-step=95921 copy.ckpt"
     if opt.sampleckpt == "None":
+        print("### Initializing model from scratch...")
         sampleLevelFeatureExtractor = SampleLevelFeatureExtractorNN()
     else:
+        print("### Loading model from checkpoint...")
         sampleLevelFeatureExtractor = (
             SampleLevelFeatureExtractorNN.load_from_checkpoint(opt.sampleckpt)
         )
@@ -337,20 +339,20 @@ def main():
                         # if isinstance(prompts, tuple):
                         # prompts = list(prompts)
 
-                        cond = model.get_learned_conditioning(prompts)
+                        # cond = model.get_learned_conditioning(prompts)
                         ## custom conditioning
-                        # data_idx = np.random.randint(dataset.__len__())
-                        # eeg, label, _ = dataset.__getitem__(data_idx)
-                        # eeg = eeg.unsqueeze(0)
-                        # eeg = eeg.to(device)
-                        # cond = sampleLevelFeatureExtractor(eeg)
+                        data_idx = np.random.randint(dataset.__len__())
+                        eeg, label, _ = dataset.__getitem__(data_idx)
+                        eeg = eeg.unsqueeze(0)
+                        eeg = eeg.to(device)
+                        cond = sampleLevelFeatureExtractor(eeg)
                         # cond = cond.unsqueeze(0)
-                        # print("cond", cond)
-                        # print(cond.shape)
+                        print("cond", cond)
+                        print(cond.shape)
 
-                        # print(
-                        #     f"############# Label: {LD.id_to_name[LD.idx_to_id[label]]} #############"
-                        # )
+                        print(
+                            f"############# Label: {LD.id_to_name[LD.idx_to_id[label]]} #############"
+                        )
 
                         # cond = torch.randn(size=[1, 77, 768], device=device)
 

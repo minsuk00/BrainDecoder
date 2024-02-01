@@ -84,3 +84,39 @@ Pixel-level semantics Extractor Mp
 - caching images in dataloader
 
 - pixel level feature extraction 거의 0임.
+
+
+
+- 나는 왤케 dataset loading 오래 걸리지
+- batch size는 왜 크게 함?
+
+
+
+생각 정리
+- 원래 SD는 condition shape가 어떻게 되지? -> 똑같이 만들어야되지 않나?
+=> c tensor([[[-0.3884,  0.0229, -0.0522,  ..., -0.4899, -0.3066,  0.0675],
+         [ 0.0286, -1.3259,  0.3084,  ..., -0.5260,  0.9774,  0.6653],
+         [-0.1971,  0.2917,  1.3057,  ..., -1.9834, -1.2367,  1.7625],
+         ...,
+         [-0.0810,  0.0318,  0.5363,  ..., -1.6231, -0.6092,  1.2734],
+         [-0.0743, -0.0030,  0.5208,  ..., -1.5944, -0.6054,  1.2610],
+         [-0.0707,  0.0820,  0.5507,  ..., -1.5166, -0.6090,  1.2121]]],
+       device='cuda:0')
+=> c shape torch.Size([1, 77, 768])
+
+
+.model.apply_model(x, t, c)
+
+
+x_recon = self.model(x_noisy, t, **cond)
+if isinstance(x_recon, tuple) and not return_ids:
+            return x_recon[0]
+        else:
+            return x_recon
+
+
+outputs.pooler_output -> openai clip output
+
+=> 그러면 transformer가 1~eot token까지의 내용을 압축해서 마지막 token embedding에 넣음?
+
+- 그러면 SD는 [1,77,768] 다 쓰나? 어디선가 필요 없는 부분은 골라내지 않을까?
