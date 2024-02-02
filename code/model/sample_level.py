@@ -39,13 +39,14 @@ loaders = None
 device = None
 
 config = {
+    # "batch_size": 16,
     "batch_size": 256,
     "optimizer": "Adam",  # ("Adam", "AdamW", "SGD")
     "lr": 1e-3,
     # "lr": 1e-4 * 75,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda_factor": 0.999,
+    "lambda_factor": 0.9975,
     # "lambda_factor": 1,
     "weight_decay": 0,
     "lstm_layer": 2,
@@ -55,7 +56,8 @@ config = {
     "use_blip": False,
     "mlp": True,
     "mlp_layers_1": 2056,
-    # "mlp_layers_2": 256,
+    # "mlp_layers_1": 512,
+    # "mlp_layers_2": 2056,
     # "mlp_layers_3": 512,
     # "mlp_layers_4": 512,
     # "mlp_layers_5": 512,
@@ -92,11 +94,11 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
                 in_features=self.hidden_size, out_features=config["mlp_layers_1"]
             ),
             nn.ReLU(),
-            nn.Linear(in_features=config["mlp_layers_1"], out_features=self.out_size),
             # nn.Linear(
             #     in_features=config["mlp_layers_1"], out_features=config["mlp_layers_2"]
             # ),
             # nn.ReLU(),
+            nn.Linear(in_features=config["mlp_layers_1"], out_features=self.out_size),
             # nn.Linear(
             #     in_features=config["mlp_layers_2"], out_features=config["mlp_layers_3"]
             # ),
