@@ -123,7 +123,7 @@ outputs.pooler_output -> openai clip output
 
 할것:
 이미지 출력 여러개로 바꾸기 with labels? gt image?
-종평이 알려주기
+nsfw image 지우기
 classifier free giadance 써보기?
 pixel level gan 완성하기 -> loss function, +@?
 pixel level gan output ldm input으로 넣기

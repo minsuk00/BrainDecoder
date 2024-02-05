@@ -25,6 +25,9 @@ from diffusers.pipelines.stable_diffusion.safety_checker import (
 )
 from transformers import AutoFeatureExtractor
 
+from torchvision.transforms import transforms
+import PIL.ImageOps
+
 
 ############# Custom imports
 sys.path.append(
@@ -332,8 +335,6 @@ def main():
                 tic = time.time()
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling"):
-                    data_idx = np.random.randint(dataset.__len__())
-                    # make n_samples per eeg data
                     for prompts in tqdm(data, desc="data"):
                         # uc = None
                         # if opt.scale != 1.0:
@@ -343,7 +344,9 @@ def main():
 
                         # cond = model.get_learned_conditioning(prompts)
                         ## custom conditioning
-                        eeg, label, _ = dataset.__getitem__(data_idx)
+                        data_idx = np.random.randint(dataset.__len__())
+                        eeg, label, img_name = dataset.__getitem__(data_idx)
+                        # eeg, label, img_name = dataset.__getitem__(2)
                         eeg = eeg.unsqueeze(0)
                         eeg = eeg.to(device)
                         # cond = sampleLevelFeatureExtractor(eeg)
@@ -351,8 +354,8 @@ def main():
                             eeg.repeat(opt.n_samples, 1, 1)
                         )
                         # cond = cond.unsqueeze(0)
-                        print("cond", cond)
-                        print(cond.shape)
+                        # print("cond", cond)
+                        # print(cond.shape)
 
                         print(
                             f"############# Label: {LD.id_to_name[LD.idx_to_id[label]]} #############"
@@ -400,13 +403,45 @@ def main():
                                 base_count += 1
 
                         if not opt.skip_grid:
-                            all_samples.append(x_checked_image_torch)
+                            root_path = "/home/choi/BrainDecoder/"
+                            dataset_path = os.path.join(root_path, "dataset")
+                            images_dataset_path = os.path.join(
+                                dataset_path, "imageNet_images"
+                            )
+                            img_path = os.path.join(
+                                images_dataset_path,
+                                img_name.split("_")[0],
+                                img_name + ".JPEG",
+                            )
+                            # img = Image.open(img_path).convert("RGB")
+                            img = Image.open(img_path).convert("RGB")
+                            img_inverted = PIL.ImageOps.invert(img)
+                            transform = transforms.Compose(
+                                [
+                                    transforms.Resize((512, 512)),
+                                    transforms.PILToTensor(),
+                                ]
+                            )
+                            original_image_torch = transform(img_inverted)
+                            # original_image_torch = original_image_torch.permute(2, 0, 1)
+                            # original_image_torch = original_image_torch[[2, 1, 0], :, :]
+                            original_image_torch = original_image_torch.unsqueeze(0)
+                            print(original_image_torch.shape)
+                            # print(x_checked_image_torch.shape)
+                            row_output = torch.cat(
+                                [original_image_torch, x_checked_image_torch], dim=0
+                            )
+                            print(row_output.shape)
+                            print("#####")
+                            all_samples.append(row_output)
+                            # all_samples.append(x_checked_image_torch)
 
                 if not opt.skip_grid:
                     # additionally, save as grid
                     grid = torch.stack(all_samples, 0)
                     grid = rearrange(grid, "n b c h w -> (n b) c h w")
-                    grid = make_grid(grid, nrow=n_rows)
+                    # nrows+1 to add original image to left
+                    grid = make_grid(grid, nrow=n_rows + 1)
 
                     # to image
                     grid = 255.0 * rearrange(grid, "c h w -> h w c").cpu().numpy()
