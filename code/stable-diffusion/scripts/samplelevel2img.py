@@ -199,7 +199,7 @@ def parseArgs():
     parser.add_argument(
         "--n_samples",
         type=int,
-        default=1,
+        default=3,
         help="how many samples to produce for each given prompt. A.k.a. batch size",
     )
     parser.add_argument(
@@ -332,6 +332,8 @@ def main():
                 tic = time.time()
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling"):
+                    data_idx = np.random.randint(dataset.__len__())
+                    # make n_samples per eeg data
                     for prompts in tqdm(data, desc="data"):
                         # uc = None
                         # if opt.scale != 1.0:
@@ -341,11 +343,13 @@ def main():
 
                         # cond = model.get_learned_conditioning(prompts)
                         ## custom conditioning
-                        data_idx = np.random.randint(dataset.__len__())
                         eeg, label, _ = dataset.__getitem__(data_idx)
                         eeg = eeg.unsqueeze(0)
                         eeg = eeg.to(device)
-                        cond = sampleLevelFeatureExtractor(eeg)
+                        # cond = sampleLevelFeatureExtractor(eeg)
+                        cond = sampleLevelFeatureExtractor(
+                            eeg.repeat(opt.n_samples, 1, 1)
+                        )
                         # cond = cond.unsqueeze(0)
                         print("cond", cond)
                         print(cond.shape)
