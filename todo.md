@@ -122,8 +122,15 @@ outputs.pooler_output -> openai clip output
 - 그러면 SD는 [1,77,768] 다 쓰나? 어디선가 필요 없는 부분은 골라내지 않을까?
 
 할것:
-이미지 출력 여러개로 바꾸기 with labels? gt image?
-nsfw image 지우기
-classifier free giadance 써보기?
 pixel level gan 완성하기 -> loss function, +@?
 pixel level gan output ldm input으로 넣기
+evaluation metrics 구현
+
+idea:
+latent channel 조절? -> what effect?
+
+Pixel-Level-GAN:
+diff aug 켜기
+n epoch마다 image 저장
+
+online triplet loss batch size 늘리기?

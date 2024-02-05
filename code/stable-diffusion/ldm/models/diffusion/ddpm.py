@@ -710,9 +710,9 @@ class LatentDiffusion(DDPM):
             assert hasattr(self.cond_stage_model, self.cond_stage_forward)
             c = getattr(self.cond_stage_model, self.cond_stage_forward)(c)
 
-        print("##################")
-        print("c", c)
-        print("c shape", c.shape)
+        # print("##################")
+        # print("c", c)
+        # print("c shape", c.shape)
         # a, b = c
         # print("a,b", a, b)
         # print("a,b", a.shape, b.shape)

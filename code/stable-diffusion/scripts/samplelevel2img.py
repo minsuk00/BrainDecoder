@@ -170,10 +170,37 @@ def parseArgs():
         help="ddim eta (eta=0.0 corresponds to deterministic sampling",
     )
     parser.add_argument(
-        "--n_iter",
+        "--from-file",
+        type=str,
+        help="if specified, load prompts from this file",
+    )
+    parser.add_argument(
+        "--precision",
+        type=str,
+        help="evaluate at this precision",
+        choices=["full", "autocast"],
+        default="autocast",
+    )
+    # ============================================================================
+    parser.add_argument(
+        "--config",
+        type=str,
+        # default="configs/stable-diffusion/v1-inference.yaml",
+        default="/home/choi/BrainDecoder/pretrains/ldm/config.yaml",
+        help="path to config which constructs model",
+    )
+    parser.add_argument(
+        "--ckpt",
+        type=str,
+        # default="models/ldm/stable-diffusion-v1/model.ckpt",
+        default="/home/choi/BrainDecoder/pretrains/ldm/v1-5-pruned.ckpt",
+        help="path to checkpoint of model",
+    )
+    parser.add_argument(
+        "--seed",
         type=int,
-        default=2,
-        help="sample this often",
+        default=42,
+        help="the seed (for reproducible sampling)",
     )
     parser.add_argument(
         "--H",
@@ -200,6 +227,12 @@ def parseArgs():
         help="downsampling factor",
     )
     parser.add_argument(
+        "--n_iter",
+        type=int,
+        default=3,
+        help="sample this often",
+    )
+    parser.add_argument(
         "--n_samples",
         type=int,
         default=3,
@@ -214,41 +247,13 @@ def parseArgs():
     parser.add_argument(
         "--scale",
         type=float,
-        default=7.5,
         # default=1,
+        # default=3,
+        default=7.5,
+        # default=10,
+        # default=12.5,
+        # default=15,
         help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty))",
-    )
-    parser.add_argument(
-        "--from-file",
-        type=str,
-        help="if specified, load prompts from this file",
-    )
-    parser.add_argument(
-        "--config",
-        type=str,
-        # default="configs/stable-diffusion/v1-inference.yaml",
-        default="/home/choi/BrainDecoder/pretrains/ldm/config.yaml",
-        help="path to config which constructs model",
-    )
-    parser.add_argument(
-        "--ckpt",
-        type=str,
-        # default="models/ldm/stable-diffusion-v1/model.ckpt",
-        default="/home/choi/BrainDecoder/pretrains/ldm/v1-5-pruned.ckpt",
-        help="path to checkpoint of model",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="the seed (for reproducible sampling)",
-    )
-    parser.add_argument(
-        "--precision",
-        type=str,
-        help="evaluate at this precision",
-        choices=["full", "autocast"],
-        default="autocast",
     )
     parser.add_argument("--sampleckpt", type=str, default="None")
     opt = parser.parse_args()
@@ -264,8 +269,8 @@ def main():
         opt.ckpt = "models/ldm/text2img-large/model.ckpt"
         opt.outdir = "outputs/txt2img-samples-laion400m"
 
-    # seed_everything(opt.seed)
-    seed_everything(torch.randint(0, 100, ()))
+    seed_everything(opt.seed)
+    # seed_everything(torch.randint(0, 100, ()))
 
     config = OmegaConf.load(f"{opt.config}")
     model = load_model_from_config(config, f"{opt.ckpt}")
@@ -336,9 +341,9 @@ def main():
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling"):
                     for prompts in tqdm(data, desc="data"):
-                        # uc = None
-                        # if opt.scale != 1.0:
-                        # uc = model.get_learned_conditioning(batch_size * [""])
+                        uc = None
+                        if opt.scale != 1.0:
+                            uc = model.get_learned_conditioning(batch_size * [""])
                         # if isinstance(prompts, tuple):
                         # prompts = list(prompts)
 
@@ -370,8 +375,8 @@ def main():
                             batch_size=opt.n_samples,
                             shape=shape,
                             verbose=False,
-                            # unconditional_guidance_scale=opt.scale,
-                            # unconditional_conditioning=uc,
+                            unconditional_guidance_scale=opt.scale,
+                            unconditional_conditioning=uc,
                             # eta=opt.ddim_eta,
                             # x_T=start_code,
                         )
@@ -384,7 +389,12 @@ def main():
                             x_samples_ddim.cpu().permute(0, 2, 3, 1).numpy()
                         )
 
-                        x_checked_image, has_nsfw_concept = check_safety(x_samples_ddim)
+                        # print(x_samples_ddim.shape)
+                        # x_checked_image, has_nsfw_concept = check_safety(x_samples_ddim)
+                        # print(x_checked_image.shape)
+                        # print("+++++++")
+                        # remove nsfw checking
+                        x_checked_image = x_samples_ddim
 
                         x_checked_image_torch = torch.from_numpy(
                             x_checked_image
@@ -426,13 +436,13 @@ def main():
                             # original_image_torch = original_image_torch.permute(2, 0, 1)
                             # original_image_torch = original_image_torch[[2, 1, 0], :, :]
                             original_image_torch = original_image_torch.unsqueeze(0)
-                            print(original_image_torch.shape)
+                            # print(original_image_torch.shape)
                             # print(x_checked_image_torch.shape)
                             row_output = torch.cat(
                                 [original_image_torch, x_checked_image_torch], dim=0
                             )
-                            print(row_output.shape)
-                            print("#####")
+                            # print(row_output.shape)
+                            # print("#####")
                             all_samples.append(row_output)
                             # all_samples.append(x_checked_image_torch)
 
@@ -453,7 +463,8 @@ def main():
                 toc = time.time()
 
     print(
-        f"Your samples are ready and waiting for you here: \n{outpath} \n" f" \nEnjoy."
+        f"Your samples are ready and waiting for you here: \n{outpath} {grid_count-1} \n"
+        f" \nEnjoy."
     )
 
 
