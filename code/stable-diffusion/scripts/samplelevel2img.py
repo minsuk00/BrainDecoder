@@ -451,7 +451,7 @@ def main():
                     grid = torch.stack(all_samples, 0)
                     grid = rearrange(grid, "n b c h w -> (n b) c h w")
                     # nrows+1 to add original image to left
-                    grid = make_grid(grid, nrow=n_rows + 1)
+                    grid = make_grid(grid, nrow=batch_size + 1)
 
                     # to image
                     grid = 255.0 * rearrange(grid, "c h w -> h w c").cpu().numpy()

@@ -129,8 +129,7 @@ evaluation metrics 구현
 idea:
 latent channel 조절? -> what effect?
 
-Pixel-Level-GAN:
+Pixel-Level-semantics:
 diff aug 켜기
-n epoch마다 image 저장
-
+python file 만들기?
 online triplet loss batch size 늘리기?
