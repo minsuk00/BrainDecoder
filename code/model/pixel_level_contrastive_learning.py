@@ -28,20 +28,20 @@ loaders = None
 device = None
 
 config = {
+    "batch-size": 1024,
+    "margin": 5.0,
+    "gpu-id": 0,
     "optimizer": "Adam",  # ("Adam", "AdamW", "SGD")
     "lr": 1e-3,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda-factor": 0.99,
+    "lambda-factor": 0.999,
     "weight-decay": 0,
-    "margin": 1.0,
     "lstm-layer": 2,
     "lstm-hidden-size": 128,
-    "batch-size": 16,
     "tsne": False,
     "tsne-interval": 10,
     "ckpt": "None",
-    "gpu-id": 1,
     "use-online-hard-triplet": True,
 }
 

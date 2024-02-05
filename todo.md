@@ -130,6 +130,10 @@ idea:
 latent channel 조절? -> what effect?
 
 Pixel-Level-semantics:
-diff aug 켜기
 python file 만들기?
 online triplet loss batch size 늘리기?
+
+config 말고 코드로 저장 가능?
+
+
+diff aug 켜기
