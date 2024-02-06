@@ -136,4 +136,7 @@ Pixel-Level-semantics:
 <!-- config 말고 코드로 저장 가능? -->
 <!-- 피클 써서 dataset 저장해두기? -->
 
-diff aug 켜기
+diff aug (pickel norm 써서 다시 만들기?) 켜기
+
+training gan without condition first?
+how to add condition?

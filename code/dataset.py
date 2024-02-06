@@ -163,6 +163,7 @@ Options = Literal[
     "split_dataset",
     "eeg_image_dataset_64_diffaug_none",
     "eeg_image_dataset_64_diffaug_all",
+    "eeg_image_dataset_64_diffaug_none_norm",
 ]
 
 
@@ -191,10 +192,12 @@ def dumpDatasetPickle():
 
     print("dumping pickle...")
 
-    pickleFileName = "eeg_image_dataset_64_diffaug_all.pickle"
-    # pickleFileName = "eeg_image_dataset_64_diffaug_none.pickle"
+    # pickleFileName = "eeg_image_dataset_64_diffaug_all.pickle"
+    # pickleFileName = "eeg_image_dataset_64_diffaug_none_norm.pickle"
+    pickleFileName = "eeg_image_dataset_128_diffaug_none_norm.pickle"
     config = {
-        "img-size": (3, 64, 64),
+        # "img-size": (3, 64, 64),
+        "img-size": (3, 128, 128),
         "diffaug-policy": "color,translation,cutout",
     }
     transform = transforms.Compose(
@@ -202,7 +205,8 @@ def dumpDatasetPickle():
             transforms.Resize((config["img-size"][1:3])),
             transforms.ToTensor(),
             # DiffAugment(policy="color,translation,cutout"),
-            DiffAugment(policy=config["diffaug-policy"]),
+            # DiffAugment(policy=config["diffaug-policy"]),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
     )
     splitDataset = loadDatasetPickle("split_dataset")
@@ -211,8 +215,8 @@ def dumpDatasetPickle():
             splitDataset[split],
             transform,
             init_imgdict=True,
-            # stochastic_transform=False,
-            stochastic_transform=True,
+            stochastic_transform=False,
+            # stochastic_transform=True,
         )
         for split in ["train", "val", "test"]
     }

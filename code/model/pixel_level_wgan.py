@@ -48,8 +48,8 @@ config = {
     # "diffaug-policy": "color,translation,cutout",
     "generate-image-every-n-epoch": 20,
     "save-checkpoint-every-n-epoch": 30,
-    # "feature-extractor-ckpt": "/home/choi/BrainDecoder/lightning_logs/PixelLevelFeatureExtraction/2024-02-06 04:01:23/epoch=466_val_loss=0.0642.ckpt",
-    "feature-extractor-ckpt": "/home/choi/BrainDecoder/lightning_logs/PixelLevelFeatureExtraction/2024-02-06 04:01:23/version/checkpoints/last.ckpt",
+    "feature-extractor-ckpt": "/home/choi/BrainDecoder/lightning_logs/PixelLevelFeatureExtraction/2024-02-06 04:01:23/epoch=466_val_loss=0.0642.ckpt",
+    # "feature-extractor-ckpt": "/home/choi/BrainDecoder/lightning_logs/PixelLevelFeatureExtraction/2024-02-06 04:01:23/version/checkpoints/last.ckpt",
     "ckpt": "None",
 }
 
@@ -98,20 +98,51 @@ class Generator(nn.Module):
     def __init__(self, latent_dim=100):
         super().__init__()
 
-        def block(input_features, output_features, normalize=True):
-            layers = [nn.Linear(input_features, output_features)]
-            if normalize:
-                layers.append(nn.BatchNorm1d(output_features, 0.8))
-            layers.append(nn.LeakyReLU(0.2, inplace=True))
-            return layers
+        # def block(input_features, output_features, normalize=True):
+        #     layers = [nn.Linear(input_features, output_features)]
+        #     if normalize:
+        #         layers.append(nn.BatchNorm1d(output_features, 0.8))
+        #     layers.append(nn.LeakyReLU(0.2, inplace=True))
+        #     return layers
 
-        self.model = nn.Sequential(
-            # *block(latent_dim + 128, 128, normalize=False),
-            *block(latent_dim, 128, normalize=False),
-            *block(128, 256),
-            *block(256, 512),
-            *block(512, 1024),
-            nn.Linear(1024, int(np.prod(config["img-size"]))),
+        # self.model = nn.Sequential(
+        #     # *block(latent_dim + 128, 128, normalize=False),
+        #     *block(latent_dim, 128, normalize=False),
+        #     *block(128, 256),
+        #     *block(256, 512),
+        #     *block(512, 1024),
+        #     nn.Linear(1024, int(np.prod(config["img-size"]))),
+        #     nn.Tanh(),
+        # )
+
+        # self.main = nn.Sequential(
+        #     nn.ConvTranspose2d(100, 512, 4, 1, 0, bias=False),
+        #     nn.BatchNorm2d(512),
+        #     nn.ReLU(True),
+        #     nn.ConvTranspose2d(512, 256, 4, 2, 1, bias=False),
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(True),
+        #     nn.ConvTranspose2d(256, 128, 4, 2, 1, bias=False),
+        #     nn.BatchNorm2d(128),
+        #     nn.ReLU(True),
+        #     nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False),
+        #     nn.BatchNorm2d(64),
+        #     nn.ReLU(True),
+        #     nn.ConvTranspose2d(64, 3, 4, 2, 1),
+        #     nn.Tanh(),
+        # )
+
+        self.seq = nn.Sequential(
+            # nn.Linear(100 + 128, 128),
+            nn.Linear(100, 128),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(128, 256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(256, 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 1024),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(1024, 784),
             nn.Tanh(),
         )
 
@@ -119,24 +150,56 @@ class Generator(nn.Module):
         # 과연...?
         # print("condition", condition)
         # print("noise", noise)
-        gen_input = torch.cat((condition, noise), -1)
-        # img = self.model(gen_input)
-        img = self.model(noise)
-        img = img.view(img.size(0), *config["img-size"])
-        return img
+        # gen_input = torch.cat((condition, noise), -1)
+        # # img = self.model(gen_input)
+        # img = self.model(noise)
+        # img = img.view(img.size(0), *config["img-size"])
+
+        # print("noise shape: ", noise.shape)
+        # print("condition shape: ", condition.shape)
+        # out = self.main(noise)
+        result = self.seq(noise)
+        result = result.view(-1, *config["img-size"])
+        return result
+        # return img
 
 
 class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.model = nn.Sequential(
-            # nn.Linear(int(np.prod(config["img-size"])) + 128, 512),
+        # self.model = nn.Sequential(
+        #     # nn.Linear(int(np.prod(config["img-size"])) + 128, 512),
+        #     nn.Linear(int(np.prod(config["img-size"])), 512),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Linear(512, 256),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Linear(256, 1),
+        #     nn.Sigmoid(),
+        # )
+
+        # self.main = nn.Sequential(
+        #     nn.Conv2d(3, 64, 4, 2, 1, bias=False),
+        #     nn.LeakyReLU(0.2, True),
+        #     nn.Conv2d(64, 128, 4, 2, 1, bias=False),
+        #     nn.BatchNorm2d(128),
+        #     nn.LeakyReLU(0.2, True),
+        #     nn.Conv2d(128, 256, 4, 2, 1, bias=False),
+        #     nn.BatchNorm2d(256),
+        #     nn.LeakyReLU(0.2, True),
+        #     nn.Conv2d(256, 512, 4, 2, 1, bias=False),
+        #     nn.BatchNorm2d(512),
+        #     nn.LeakyReLU(0.2, True),
+        #     nn.Conv2d(512, 1, 4, 1, 0),
+        # )
+
+        self.seq = nn.Sequential(
+            # nn.Linear(784 + 128, 512),
             nn.Linear(int(np.prod(config["img-size"])), 512),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 256),
+            nn.Linear(512, 128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(256, 1),
+            nn.Linear(128, 1),
             nn.Sigmoid(),
         )
 
@@ -144,9 +207,17 @@ class Discriminator(nn.Module):
         # print(img.shape)  # torch.Size([16, 3, 128, 128])
         # print(condition.shape)  # torch.Size([16, 128])
         # d_input = torch.cat((img.view(img.size(0), -1), condition), -1)
-        d_input = img.view(img.size(0), -1)
-        validity = self.model(d_input)
-        return validity
+
+        # d_input = img.view(img.size(0), -1)
+        # validity = self.model(d_input)
+        # return validity
+        # out = self.main(img)
+        # out = torch.flatten(out)
+
+        input = img.view(img.size(0), -1)
+        result = self.seq(input)
+        return result
+        # return out
 
 
 class saliency_map_GAN(L.LightningModule):
@@ -173,6 +244,35 @@ class saliency_map_GAN(L.LightningModule):
     def forward(self, noise, condition):
         return self.generator(noise, condition)
 
+    def calculate_gradient_penalty(
+        self, model, dummy_eegs, real_images, fake_images, device
+    ):
+        """Calculates the gradient penalty loss for WGAN GP"""
+        # Random weight term for interpolation between real and fake data
+        alpha = torch.randn((real_images.size(0), 1, 1, 1), device=device)
+        # Get random interpolation between real and fake data
+        interpolates = (
+            alpha * real_images + ((1 - alpha) * fake_images)
+        ).requires_grad_(True)
+
+        model_interpolates = model(interpolates, dummy_eegs)
+        grad_outputs = torch.ones(
+            model_interpolates.size(), device=device, requires_grad=False
+        )
+
+        # Get gradient w.r.t. interpolates
+        gradients = torch.autograd.grad(
+            outputs=model_interpolates,
+            inputs=interpolates,
+            grad_outputs=grad_outputs,
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )[0]
+        gradients = gradients.view(gradients.size(0), -1)
+        gradient_penalty = torch.mean((gradients.norm(2, dim=1) - 1) ** 2)
+        return gradient_penalty
+
     def training_step(self, batch, _):
         eegs, _, real_imgs = batch
         g_optim, d_optim = self.optimizers()
@@ -180,6 +280,7 @@ class saliency_map_GAN(L.LightningModule):
 
         batch_size = real_imgs.size(0)
         noise = torch.randn(batch_size, 100)
+        # noise = torch.randn(batch_size, 100, 1, 1)
         noise = noise.to(device)
         real_imgs = real_imgs.to(device)
 
@@ -193,7 +294,8 @@ class saliency_map_GAN(L.LightningModule):
         #####################
         gen_imgs = self.generator(noise, eeg_features)
         y_hat = self.discriminator(gen_imgs, eeg_features)
-        g_loss = self.loss_fn(y_hat, y_real)
+        # g_loss = self.loss_fn(y_hat, y_real)
+        g_loss = -torch.mean(y_hat)
 
         # print("########")
         # print("real_imgs: ", real_imgs)
@@ -219,13 +321,23 @@ class saliency_map_GAN(L.LightningModule):
         # discriminator training
         #########################
         y_hat = self.discriminator(real_imgs, eeg_features)
-        d_loss_real = self.loss_fn(y_hat, y_real)
+        # d_loss_real = self.loss_fn(y_hat, y_real)
+        d_loss_real = torch.mean(y_hat)
 
         gen_imgs = self.generator(noise, eeg_features)
         y_hat_2 = self.discriminator(gen_imgs, eeg_features)
-        d_loss_fake = self.loss_fn(y_hat_2, y_fake)
+        # d_loss_fake = self.loss_fn(y_hat_2, y_fake)
+        d_loss_fake = torch.mean(y_hat_2)
 
-        d_loss = (d_loss_real + d_loss_fake) / 2
+        # d_loss = (d_loss_real + d_loss_fake) / 2
+        gradient_penalty = self.calculate_gradient_penalty(
+            self.discriminator,
+            eeg_features,
+            real_imgs,
+            gen_imgs,
+            self.device,
+        )
+        d_loss = -d_loss_real + d_loss_fake + gradient_penalty * 10
 
         # hinge loss from Geometric GAN
         # https://github.com/ChristophReich1996/Mode_Collapse/blob/master/loss.py
@@ -267,6 +379,7 @@ class saliency_map_GAN(L.LightningModule):
 
         batch_size = real_imgs.size(0)
         noise = torch.randn(batch_size, 100)
+        # noise = torch.randn(batch_size, 100, 1, 1)
         noise = noise.to(device)
         real_imgs = real_imgs.to(device)
 
@@ -307,7 +420,10 @@ class saliency_map_GAN(L.LightningModule):
 
     def configure_optimizers(self):
         g_optim = optim.Adam(
-            self.generator.parameters(), lr=config["lr"], betas=(0.9, 0.999)
+            # self.generator.parameters(), lr=config["lr"], betas=(0.9, 0.999)
+            self.generator.parameters(),
+            lr=config["lr"],
+            betas=(0.5, 0.999),
         )
         # d_optim = optim.Adam(
         #     self.discriminator.parameters(), lr=config["lr"], betas=(0.9, 0.999)
@@ -432,7 +548,8 @@ def preload():
     if config["use-diffaug"]:
         dataset = loadDatasetPickle("eeg_image_dataset_64_diffaug_all")
     else:
-        dataset = loadDatasetPickle("eeg_image_dataset_64_diffaug_none")
+        # dataset = loadDatasetPickle("eeg_image_dataset_64_diffaug_none")
+        dataset = loadDatasetPickle("eeg_image_dataset_64_diffaug_none_norm")
     loaders = {
         split: DataLoader(
             dataset=dataset[split],
