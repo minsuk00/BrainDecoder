@@ -107,11 +107,14 @@ class Splitter(Dataset):
 
 
 class EEGImageDataset(Dataset):
-    def __init__(self, dataset, transform=None, init_imgdict=False):
+    def __init__(
+        self, dataset, transform=None, init_imgdict=False, stochastic_transform=False
+    ):
         super().__init__()
         self.dataset = dataset
         self.transform = transform
         self.img_dict = {}
+        self.stochastic_transform = stochastic_transform
 
         if init_imgdict:
             for idx in range(self.__len__()):
@@ -123,7 +126,7 @@ class EEGImageDataset(Dataset):
                 # img = Image.open(img_path)
                 # img.draft("RGB", (128, 128))
                 # img = img.load()
-                if self.transform:
+                if not stochastic_transform and self.transform:
                     img = self.transform(img)
                 self.img_dict[img_name] = img
 
@@ -144,10 +147,12 @@ class EEGImageDataset(Dataset):
             # img = Image.open(img_path)
             # img.draft("RGB", (128, 128))
             # img = img.load()
-            if self.transform:
+            if not self.stochastic_transform and self.transform:
                 img = self.transform(img)
             self.img_dict[img_name] = img
 
+        if self.stochastic_transform and self.transform:
+            img = self.transform(img)
         return eeg, label, img
 
 
@@ -167,7 +172,7 @@ def loadDatasetPickle(pickleFileName: Options):
         print(f"loading {pickleFileName} pickle...")
         data = pickle.load(fr)
         # print(data)
-        print("finished loading!")
+        print(f"finished loading {pickleFileName}!")
     return data
 
 
@@ -187,6 +192,7 @@ def dumpDatasetPickle():
     print("dumping pickle...")
 
     pickleFileName = "eeg_image_dataset_64_diffaug_all.pickle"
+    # pickleFileName = "eeg_image_dataset_64_diffaug_none.pickle"
     config = {
         "img-size": (3, 64, 64),
         "diffaug-policy": "color,translation,cutout",
@@ -201,7 +207,13 @@ def dumpDatasetPickle():
     )
     splitDataset = loadDatasetPickle("split_dataset")
     eegImageDataset = {
-        split: EEGImageDataset(splitDataset[split], transform, init_imgdict=True)
+        split: EEGImageDataset(
+            splitDataset[split],
+            transform,
+            init_imgdict=True,
+            # stochastic_transform=False,
+            stochastic_transform=True,
+        )
         for split in ["train", "val", "test"]
     }
 
@@ -216,3 +228,4 @@ if __name__ == "__main__":
     # print(data["train"].__getitem__(10))
     # print(data["test"].__len__())
     dumpDatasetPickle()
+    print("hi :)")

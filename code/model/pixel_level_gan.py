@@ -21,9 +21,11 @@ from PIL import Image
 import argparse
 import json
 from pprint import pprint
+import inspect
 
 sys.path.append((os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-import dataset as D
+# import dataset as D
+from dataset import loadDatasetPickle, EEGImageDataset, Splitter, EEGDataset
 from diff_augment import DiffAugment
 import lookup_dict as LD
 
@@ -41,9 +43,10 @@ config = {
     "lstm-hidden-size": 128,
     "lstm-layer": 2,
     "img-size": (3, 64, 64),
-    "diffaug-policy": "color,translation,cutout",
-    "generate-image-every-n-epoch": 5,
-    "save-checkpoint-every-n-epoch": 10,
+    "use-diffaug": True,
+    # "diffaug-policy": "color,translation,cutout",
+    "generate-image-every-n-epoch": 20,
+    "save-checkpoint-every-n-epoch": 30,
     "feature-extractor-ckpt": "/home/choi/BrainDecoder/lightning_logs/PixelLevelFeatureExtraction/2024-02-06 04:01:23/epoch=466_val_loss=0.0642.ckpt",
     "ckpt": "None",
 }
@@ -335,6 +338,25 @@ def train(now):
         "w+",
     ) as outfile:
         outfile.write(config_json)
+    # Saving class source code
+    classSourceCode = inspect.getsource(PixelLevelFeatureExtractorNN)
+    classSourceCode2 = inspect.getsource(Generator)
+    classSourceCode3 = inspect.getsource(Discriminator)
+    classSourceCode4 = inspect.getsource(saliency_map_GAN)
+    sourceCode = (
+        classSourceCode
+        + "\n\n"
+        + classSourceCode2
+        + "\n\n"
+        + classSourceCode3
+        + "\n\n"
+        + classSourceCode4
+    )
+    with open(
+        f"/home/choi/BrainDecoder/lightning_logs/SaliencyMapGAN/{now}/version/class.py",
+        "w+",
+    ) as outfile:
+        outfile.write(sourceCode)
 
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
     ckpt_callback = ModelCheckpoint(
@@ -364,20 +386,37 @@ def preload():
     device = f"cuda:{config['gpu-id']}" if torch.cuda.is_available() else "cpu"
     print(f"Running on {device}...")
 
-    print("Loading dataset...")
-    dataset = D.EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth")
+    print("Making dataloader...")
+    # dataset = D.EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth")
 
-    transform = transforms.Compose(
-        [
-            transforms.Resize((config["img-size"][1:3])),
-            transforms.ToTensor(),
-            # DiffAugment(policy="color,translation,cutout"),
-            # DiffAugment(policy=config["diffaug-policy"]),
-        ]
-    )
+    # transform = transforms.Compose(
+    #     [
+    #         transforms.Resize((config["img-size"][1:3])),
+    #         transforms.ToTensor(),
+    #         # DiffAugment(policy="color,translation,cutout"),
+    #         # DiffAugment(policy=config["diffaug-policy"]),
+    #     ]
+    # )
+    # loaders = {
+    #     split: DataLoader(
+    #         dataset=D.EEGImageDataset(D.Splitter(dataset, split_name=split), transform),
+    #         batch_size=config["batch-size"],
+    #         shuffle=True if split == "train" else False,
+    #         drop_last=True,
+    #         num_workers=4,
+    #     )
+    #     for split in ["train", "val", "test"]
+    # }
+
+    if config["img-size"][1] != 64:
+        raise Exception("make pickle dataset first")
+    if config["use-diffaug"]:
+        dataset = loadDatasetPickle("eeg_image_dataset_64_diffaug_all")
+    else:
+        dataset = loadDatasetPickle("eeg_image_dataset_64_diffaug_none")
     loaders = {
         split: DataLoader(
-            dataset=D.EEGImageDataset(D.Splitter(dataset, split_name=split), transform),
+            dataset=dataset[split],
             batch_size=config["batch-size"],
             shuffle=True if split == "train" else False,
             drop_last=True,
@@ -385,7 +424,7 @@ def preload():
         )
         for split in ["train", "val", "test"]
     }
-
+    print("Making Dataloader complete")
     return device, loaders
 
 

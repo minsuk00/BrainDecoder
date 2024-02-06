@@ -130,10 +130,10 @@ idea:
 latent channel 조절? -> what effect?
 
 Pixel-Level-semantics:
-python file 만들기?
-online triplet loss batch size 늘리기?
+<!-- python file 만들기? -->
+<!-- online triplet loss batch size 늘리기? -->
 
-config 말고 코드로 저장 가능?
-피클 써서 dataset 저장해두기?
+<!-- config 말고 코드로 저장 가능? -->
+<!-- 피클 써서 dataset 저장해두기? -->
 
 diff aug 켜기
