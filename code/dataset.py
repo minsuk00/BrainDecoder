@@ -4,6 +4,7 @@ import os
 import random
 import numpy as np
 from PIL import Image
+import pickle
 
 # import cv2
 
@@ -106,11 +107,25 @@ class Splitter(Dataset):
 
 
 class EEGImageDataset(Dataset):
-    def __init__(self, dataset, transform=None):
+    def __init__(self, dataset, transform=None, init_imgdict=False):
         super().__init__()
         self.dataset = dataset
         self.transform = transform
         self.img_dict = {}
+
+        if init_imgdict:
+            for idx in range(self.__len__()):
+                _, _, img_name = self.dataset[idx]
+                img_path = os.path.join(
+                    images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
+                )
+                img = Image.open(img_path).convert("RGB")
+                # img = Image.open(img_path)
+                # img.draft("RGB", (128, 128))
+                # img = img.load()
+                if self.transform:
+                    img = self.transform(img)
+                self.img_dict[img_name] = img
 
     def __len__(self):
         return self.dataset.__len__()
@@ -129,9 +144,75 @@ class EEGImageDataset(Dataset):
             # img = Image.open(img_path)
             # img.draft("RGB", (128, 128))
             # img = img.load()
+            if self.transform:
+                img = self.transform(img)
             self.img_dict[img_name] = img
 
-        if self.transform:
-            img = self.transform(img)
-
         return eeg, label, img
+
+
+from typing import Literal
+
+Options = Literal[
+    "eeg_dataset",
+    "split_dataset",
+    "eeg_image_dataset_64_diffaug_none",
+    "eeg_image_dataset_64_diffaug_all",
+]
+
+
+def loadDatasetPickle(pickleFileName: Options):
+    file = os.path.join(dataset_path, "pickle", pickleFileName + ".pickle")
+    with open(file, "rb") as fr:
+        print(f"loading {pickleFileName} pickle...")
+        data = pickle.load(fr)
+        # print(data)
+        print("finished loading!")
+    return data
+
+
+def dumpDatasetPickle():
+    # eegDataset = EEGDataset()
+    # splitDataset = {
+    #     split: Splitter(eegDataset, split_name=split)
+    #     for split in ["train", "val", "test"]
+    # }
+    # print(splitDataset["train"])
+    # print(splitDataset["val"])
+    # print(splitDataset["test"])
+
+    from torchvision.transforms import transforms
+    from diff_augment import DiffAugment
+
+    print("dumping pickle...")
+
+    pickleFileName = "eeg_image_dataset_64_diffaug_all.pickle"
+    config = {
+        "img-size": (3, 64, 64),
+        "diffaug-policy": "color,translation,cutout",
+    }
+    transform = transforms.Compose(
+        [
+            transforms.Resize((config["img-size"][1:3])),
+            transforms.ToTensor(),
+            # DiffAugment(policy="color,translation,cutout"),
+            DiffAugment(policy=config["diffaug-policy"]),
+        ]
+    )
+    splitDataset = loadDatasetPickle("split_dataset")
+    eegImageDataset = {
+        split: EEGImageDataset(splitDataset[split], transform, init_imgdict=True)
+        for split in ["train", "val", "test"]
+    }
+
+    file = os.path.join(dataset_path, "pickle", pickleFileName)
+    with open(file, "wb") as fw:
+        pickle.dump(eegImageDataset, fw)
+        print("finished dumping!")
+
+
+if __name__ == "__main__":
+    # data = loadDatasetPickle("eeg_image_dataset_64_diffaug_none")
+    # print(data["train"].__getitem__(10))
+    # print(data["test"].__len__())
+    dumpDatasetPickle()

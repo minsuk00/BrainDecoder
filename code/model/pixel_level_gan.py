@@ -34,10 +34,10 @@ dataset_path = os.path.join(root_path, "dataset")
 images_dataset_path = os.path.join(dataset_path, "imageNet_images")
 
 config = {
-    "batch-size": 16,
-    "lr": 2e-4,
-    "lambda-factor": 0.975,
-    "gpu-id": 1,
+    "batch-size": 512,
+    "lr": 1e-3,
+    "lambda-factor": 0.99,
+    "gpu-id": 2,
     "lstm-hidden-size": 128,
     "lstm-layer": 2,
     "img-size": (3, 64, 64),
@@ -302,12 +302,13 @@ class saliency_map_GAN(L.LightningModule):
         d_scheduler = optim.lr_scheduler.LambdaLR(
             d_optim, lambda epoch: config["lambda-factor"] ** epoch
         )
+        self.scheduler = d_scheduler
         return [g_optim, d_optim], [g_scheduler, d_scheduler]
         # return [g_optim, d_optim], []
 
 
 def train(now):
-    if config["checkpoint"] != "None":
+    if config["ckpt"] != "None":
         model = saliency_map_GAN.load_from_checkpoint(config["ckpt"])
     else:
         model = saliency_map_GAN()

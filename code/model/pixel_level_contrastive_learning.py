@@ -15,6 +15,7 @@ import os
 import sys
 import argparse
 import json
+import inspect
 
 sys.path.append((os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from dataset import EEGDataset, Splitter
@@ -29,13 +30,13 @@ device = None
 
 config = {
     "batch-size": 1024,
-    "margin": 5.0,
+    "margin": 10.0,
     "gpu-id": 0,
     "optimizer": "Adam",  # ("Adam", "AdamW", "SGD")
     "lr": 1e-3,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda-factor": 0.999,
+    "lambda-factor": 0.99,
     "weight-decay": 0,
     "lstm-layer": 2,
     "lstm-hidden-size": 128,
@@ -251,6 +252,16 @@ def train():
         "w+",
     ) as outfile:
         outfile.write(config_json)
+
+    # writing class code to file
+    # configSourceCode = inspect.getsource(config)
+    classSourceCode = inspect.getsource(PixelLevelFeatureExtractorNN)
+    # Writing to sample.json
+    with open(
+        f"/home/choi/BrainDecoder/lightning_logs/PixelLevelFeatureExtraction/{now}/version/class.py",
+        "w+",
+    ) as outfile:
+        outfile.write(classSourceCode)
 
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
     ckpt_callback = ModelCheckpoint(
