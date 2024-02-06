@@ -125,18 +125,17 @@ outputs.pooler_output -> openai clip output
 pixel level gan 완성하기 -> loss function, +@?
 pixel level gan output ldm input으로 넣기
 evaluation metrics 구현
+sample level -> blip 써서 해보기
 
 idea:
 latent channel 조절? -> what effect?
 
 Pixel-Level-semantics:
-<!-- python file 만들기? -->
 <!-- online triplet loss batch size 늘리기? -->
-
-<!-- config 말고 코드로 저장 가능? -->
-<!-- 피클 써서 dataset 저장해두기? -->
 
 diff aug (pickel norm 써서 다시 만들기?) 켜기
 
 training gan without condition first?
 how to add condition?
+
+feature extractor 마지막을 sigmoid?

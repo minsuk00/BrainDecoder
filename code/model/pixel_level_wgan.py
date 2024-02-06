@@ -37,17 +37,18 @@ images_dataset_path = os.path.join(dataset_path, "imageNet_images")
 
 config = {
     "batch-size": 512,
+    # "lr": 2e-4,
     "lr": 2e-4,
     # "lambda-factor": 0.99,
     "lambda-factor": 1,
-    "gpu-id": 2,
+    "gpu-id": 0,
     "lstm-hidden-size": 128,
     "lstm-layer": 2,
     "img-size": (3, 64, 64),
     "use-diffaug": False,
     # "diffaug-policy": "color,translation,cutout",
     "generate-image-every-n-epoch": 20,
-    "save-checkpoint-every-n-epoch": 30,
+    "save-checkpoint-every-n-epoch": 50,
     "feature-extractor-ckpt": "/home/choi/BrainDecoder/lightning_logs/PixelLevelFeatureExtraction/2024-02-06 04:01:23/epoch=466_val_loss=0.0642.ckpt",
     # "feature-extractor-ckpt": "/home/choi/BrainDecoder/lightning_logs/PixelLevelFeatureExtraction/2024-02-06 04:01:23/version/checkpoints/last.ckpt",
     "ckpt": "None",
@@ -115,36 +116,55 @@ class Generator(nn.Module):
         #     nn.Tanh(),
         # )
 
-        # self.main = nn.Sequential(
-        #     nn.ConvTranspose2d(100, 512, 4, 1, 0, bias=False),
-        #     nn.BatchNorm2d(512),
-        #     nn.ReLU(True),
-        #     nn.ConvTranspose2d(512, 256, 4, 2, 1, bias=False),
-        #     nn.BatchNorm2d(256),
-        #     nn.ReLU(True),
-        #     nn.ConvTranspose2d(256, 128, 4, 2, 1, bias=False),
-        #     nn.BatchNorm2d(128),
-        #     nn.ReLU(True),
-        #     nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False),
-        #     nn.BatchNorm2d(64),
-        #     nn.ReLU(True),
-        #     nn.ConvTranspose2d(64, 3, 4, 2, 1),
+        self.linear = nn.Sequential(nn.Linear(228, 1 * 1 * 100), nn.LeakyReLU())
+
+        self.main = nn.Sequential(
+            nn.ConvTranspose2d(100, 512, 4, 1, 0, bias=False),
+            nn.BatchNorm2d(512),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(512, 256, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(256, 128, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(64, 3, 4, 2, 1),
+            nn.Tanh(),
+        )
+
+        # self.seq = nn.Sequential(
+        #     # nn.Linear(100 + 128, 128),
+        #     nn.Linear(100, 128),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Linear(128, 256),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Linear(256, 512),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Linear(512, 1024),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Linear(1024, int(np.prod(config["img-size"]))),
         #     nn.Tanh(),
         # )
 
-        self.seq = nn.Sequential(
-            # nn.Linear(100 + 128, 128),
-            nn.Linear(100, 128),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(128, 256),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(256, 512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 1024),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(1024, 784),
-            nn.Tanh(),
-        )
+        # def block(in_feat, out_feat, normalize=True):
+        #     layers = [nn.Linear(in_feat, out_feat)]
+        #     if normalize:
+        #         layers.append(nn.BatchNorm1d(out_feat, 0.8))
+        #     layers.append(nn.LeakyReLU(0.2, inplace=True))
+        #     return layers
+
+        # self.model = nn.Sequential(
+        #     *block(100 + 128, 128, normalize=False),
+        #     # *block(100, 128, normalize=False),
+        #     *block(128, 256),
+        #     *block(256, 512),
+        #     *block(512, 1024),
+        #     nn.Linear(1024, int(np.prod(config["img-size"]))),
+        #     nn.Tanh(),
+        # )
 
     def forward(self, noise, condition):
         # 과연...?
@@ -158,8 +178,18 @@ class Generator(nn.Module):
         # print("noise shape: ", noise.shape)
         # print("condition shape: ", condition.shape)
         # out = self.main(noise)
-        result = self.seq(noise)
-        result = result.view(-1, *config["img-size"])
+
+        # print("noise shape: ", noise.shape)
+        # print("cond shape: ", condition.shape)
+        gen_input = torch.cat((condition, noise), -1)
+        gen_input = self.linear(gen_input)
+        gen_input = gen_input.view(gen_input.size(0), 100, 1, 1)
+        # print("gen_input shape: ", gen_input.shape)
+        # result = self.model(gen_input)
+        result = self.main(gen_input)
+        # result = self.model(noise)
+        # result = result.view(result.size(0), *config["img-size"])
+        # print("result shape", result.shape)
         return result
         # return img
 
@@ -178,30 +208,36 @@ class Discriminator(nn.Module):
         #     nn.Sigmoid(),
         # )
 
-        # self.main = nn.Sequential(
-        #     nn.Conv2d(3, 64, 4, 2, 1, bias=False),
-        #     nn.LeakyReLU(0.2, True),
-        #     nn.Conv2d(64, 128, 4, 2, 1, bias=False),
-        #     nn.BatchNorm2d(128),
-        #     nn.LeakyReLU(0.2, True),
-        #     nn.Conv2d(128, 256, 4, 2, 1, bias=False),
-        #     nn.BatchNorm2d(256),
-        #     nn.LeakyReLU(0.2, True),
-        #     nn.Conv2d(256, 512, 4, 2, 1, bias=False),
-        #     nn.BatchNorm2d(512),
-        #     nn.LeakyReLU(0.2, True),
-        #     nn.Conv2d(512, 1, 4, 1, 0),
-        # )
+        # https://github.com/sobhanshukueian/Conditional-DCGAN/blob/main/cDCGAN_(Conditional_DCGAN).ipynb
+        self.linear = nn.Sequential(nn.Linear(128, 1 * 64 * 64), nn.LeakyReLU())
 
-        self.seq = nn.Sequential(
-            # nn.Linear(784 + 128, 512),
-            nn.Linear(int(np.prod(config["img-size"])), 512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 128),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(128, 1),
-            nn.Sigmoid(),
+        self.main = nn.Sequential(
+            # nn.Conv2d(3, 64, 4, 2, 1, bias=False),
+            nn.Conv2d(4, 64, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, True),
+            nn.Conv2d(64, 128, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, True),
+            nn.Conv2d(128, 512, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, True),
+            nn.Conv2d(512, 256, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, True),
+            nn.Conv2d(256, 1, 4, 1, 0),
         )
+
+        # self.seq = nn.Sequential(
+        #     # nn.Linear(784 + 128, 512),
+        #     # nn.Linear(int(np.prod(config["img-size"])), 512),
+        #     nn.Linear(int(np.prod(config["img-size"])) + 128, 512),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Linear(512, 256),
+        #     nn.Dropout(0.4),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Linear(256, 1),
+        #     # nn.Sigmoid(),
+        # )
 
     def forward(self, img, condition):
         # print(img.shape)  # torch.Size([16, 3, 128, 128])
@@ -211,13 +247,17 @@ class Discriminator(nn.Module):
         # d_input = img.view(img.size(0), -1)
         # validity = self.model(d_input)
         # return validity
-        # out = self.main(img)
-        # out = torch.flatten(out)
+        condition = self.linear(condition).view(condition.size(0), 1, 64, 64)
+        d_input = torch.concat([img, condition], dim=1)
+        # d_input = torch.cat((img.view(img.size(0), -1), condition), -1)
+        out = self.main(d_input)
+        out = torch.flatten(out)
+        return out
 
-        input = img.view(img.size(0), -1)
-        result = self.seq(input)
-        return result
-        # return out
+        # d_input = torch.cat((img.view(img.size(0), -1), condition), -1)
+        # input = img.view(img.size(0), -1)
+        # result = self.seq(d_input)
+        # return result
 
 
 class saliency_map_GAN(L.LightningModule):
@@ -235,7 +275,7 @@ class saliency_map_GAN(L.LightningModule):
             config["feature-extractor-ckpt"]
         )
         self.feature_extractor.requires_grad_(False)
-        self.loss_fn = self.adversarial_loss
+        # self.loss_fn = self.adversarial_loss
 
     def adversarial_loss(self, y_hat, y):
         return F.binary_cross_entropy(y_hat, y)
@@ -245,7 +285,7 @@ class saliency_map_GAN(L.LightningModule):
         return self.generator(noise, condition)
 
     def calculate_gradient_penalty(
-        self, model, dummy_eegs, real_images, fake_images, device
+        self, model, condition, real_images, fake_images, device
     ):
         """Calculates the gradient penalty loss for WGAN GP"""
         # Random weight term for interpolation between real and fake data
@@ -255,7 +295,7 @@ class saliency_map_GAN(L.LightningModule):
             alpha * real_images + ((1 - alpha) * fake_images)
         ).requires_grad_(True)
 
-        model_interpolates = model(interpolates, dummy_eegs)
+        model_interpolates = model(interpolates, condition)
         grad_outputs = torch.ones(
             model_interpolates.size(), device=device, requires_grad=False
         )
@@ -285,6 +325,8 @@ class saliency_map_GAN(L.LightningModule):
         real_imgs = real_imgs.to(device)
 
         eeg_features = self.feature_extractor(eegs)
+        # print(eeg_features.shape)
+        # print(eeg_features)
 
         y_real = torch.ones([batch_size, 1], device=device, requires_grad=False)
         y_fake = torch.zeros([batch_size, 1], device=device, requires_grad=False)
