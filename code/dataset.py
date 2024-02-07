@@ -274,5 +274,8 @@ if __name__ == "__main__":
     # dumpDatasetPickle()
 
     start = time.time()
-    dumpBlipCaptionPickle()
+    # dumpBlipCaptionPickle()
+    # dict = loadDatasetPickle("blip_caption_cache_dict")
+    # for i in dict:
+    #     print(dict[i])
     print(f"took {time.time()-start} seconds")

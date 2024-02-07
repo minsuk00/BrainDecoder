@@ -37,6 +37,7 @@ eeg_dataset_path = os.path.join(dataset_path, "eeg")
 tokenizer, transformer = None, None
 blip_model, vis_processors = None, None
 device, loaders, now = None, None, None
+blip_caption_cache = None
 
 
 config = {
@@ -130,7 +131,7 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         # self.loss_fn = nn.MSELoss()
         self.cos = nn.CosineSimilarity()
 
-        self.blip_caption_cache = {}
+        self.blip_caption_cache = blip_caption_cache
 
     def forward(self, input):
         lstm_out, _ = self.lstm(input)
@@ -423,7 +424,13 @@ def preload():
     }
     print("Making Dataloader complete")
 
-    return device, loaders
+    blip_caption_cache = None
+    if config["use_blip"]:
+        print("Loading BLIP caption dict...")
+        blip_caption_cache = loadDatasetPickle("blip_caption_cache_dict")
+        print("Loading BLIP caption dict finished")
+
+    return device, loaders, blip_caption_cache
 
 
 def train():
@@ -518,5 +525,5 @@ if __name__ == "__main__":
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     parseArgs()
-    device, loaders = preload()
+    device, loaders, blip_caption_cache = preload()
     train()
