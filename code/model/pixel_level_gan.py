@@ -488,4 +488,4 @@ if __name__ == "__main__":
 
     parseArgs()
     device, loaders = preload()
-    train(now)
+    train()

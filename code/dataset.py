@@ -5,6 +5,8 @@ import random
 import numpy as np
 from PIL import Image
 import pickle
+import time
+from tqdm import tqdm
 
 # import cv2
 
@@ -164,6 +166,7 @@ Options = Literal[
     "eeg_image_dataset_64_diffaug_none",
     "eeg_image_dataset_64_diffaug_all",
     "eeg_image_dataset_64_diffaug_none_norm",
+    "blip_caption_cache_dict",
 ]
 
 
@@ -227,9 +230,49 @@ def dumpDatasetPickle():
         print("finished dumping!")
 
 
+def dumpBlipCaptionPickle():
+    from lavis.models import load_model_and_preprocess
+
+    print("dumping pickle...")
+    pickleFileName = "blip_caption_cache_dict.pickle"
+
+    blip_caption_cache_dict = {}
+    dataset = loadDatasetPickle("eeg_dataset")
+
+    device = f"cuda:2" if torch.cuda.is_available() else "cpu"
+    print("loading blip...")
+    blip_model, vis_processors, _ = load_model_and_preprocess(
+        name="blip_caption",
+        # model_type="base_coco",
+        model_type="large_coco",
+        is_eval=True,
+        device=device,
+    )
+    print("loading blip complete!")
+
+    for i in tqdm(range(dataset.__len__())):
+        _, _, img_name = dataset.__getitem__(i)
+
+        img_path = os.path.join(
+            images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
+        )
+        pil_img = Image.open(img_path).convert("RGB")
+        processed_img = vis_processors["eval"](pil_img).unsqueeze(0).to(device)
+        caption = blip_model.generate({"image": processed_img})[0]
+        blip_caption_cache_dict[img_name] = caption
+
+    file = os.path.join(dataset_path, "pickle", pickleFileName)
+    with open(file, "wb") as fw:
+        pickle.dump(blip_caption_cache_dict, fw)
+        print("finished dumping!")
+
+
 if __name__ == "__main__":
     # data = loadDatasetPickle("eeg_image_dataset_64_diffaug_none")
     # print(data["train"].__getitem__(10))
     # print(data["test"].__len__())
-    dumpDatasetPickle()
-    print("hi :)")
+    # dumpDatasetPickle()
+
+    start = time.time()
+    dumpBlipCaptionPickle()
+    print(f"took {time.time()-start} seconds")

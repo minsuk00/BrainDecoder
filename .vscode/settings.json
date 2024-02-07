@@ -2,7 +2,8 @@
     "cSpell.enabled": false,
     "python.analysis.extraPaths": [
         "./code/model",
-        "./code"
+        "./code",
+        "./code/stable-diffusion"
     ],
     "files.watcherExclude": {
         "**/.git": true,

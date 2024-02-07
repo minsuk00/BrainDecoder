@@ -122,20 +122,20 @@ outputs.pooler_output -> openai clip output
 - 그러면 SD는 [1,77,768] 다 쓰나? 어디선가 필요 없는 부분은 골라내지 않을까?
 
 할것:
-pixel level gan 완성하기 -> loss function, +@?
-pixel level gan output ldm input으로 넣기
-evaluation metrics 구현
+<!-- pixel level gan 완성하기 -> loss function, +@? -->
+<!-- pixel level gan output ldm input으로 넣기 -->
 sample level -> blip 써서 해보기
+evaluation metrics 구현
 
 idea:
 latent channel 조절? -> what effect?
 
-Pixel-Level-semantics:
+<!-- Pixel-Level-semantics: -->
 <!-- online triplet loss batch size 늘리기? -->
 
-diff aug (pickel norm 써서 다시 만들기?) 켜기
+<!-- diff aug (pickel norm 써서 다시 만들기?) 켜기 -->
 
-training gan without condition first?
-how to add condition?
+<!-- training gan without condition first? -->
+<!-- how to add condition? -->
 
-feature extractor 마지막을 sigmoid?
+<!-- feature extractor 마지막을 sigmoid? -->

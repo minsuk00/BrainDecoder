@@ -225,6 +225,7 @@ class Discriminator(nn.Module):
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, True),
             nn.Conv2d(256, 1, 4, 1, 0),
+            # nn.Sigmoid(),
         )
 
         # self.seq = nn.Sequential(
@@ -647,4 +648,4 @@ if __name__ == "__main__":
 
     parseArgs()
     device, loaders = preload()
-    train(now)
+    train()

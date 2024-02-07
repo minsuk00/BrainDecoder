@@ -23,10 +23,11 @@ import argparse
 import sys
 import os
 import json
+import inspect
 
 sys.path.append((os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import lookup_dict as LD
-import dataset as D
+from dataset import loadDatasetPickle, Splitter, EEGDataset
 
 root_path = "/home/choi/BrainDecoder/"
 dataset_path = os.path.join(root_path, "dataset")
@@ -35,8 +36,8 @@ eeg_dataset_path = os.path.join(dataset_path, "eeg")
 
 tokenizer, transformer = None, None
 blip_model, vis_processors = None, None
-loaders = None
-device = None
+device, loaders, now = None, None, None
+
 
 config = {
     # "batch_size": 16,
@@ -53,7 +54,8 @@ config = {
     "lstm_hidden_size": 128,
     "tsne": False,
     "tsne_interval": 20,
-    "use_blip": False,
+    # "use_blip": False,
+    "use_blip": True,
     "mlp": True,
     "mlp_layers_1": 2056,
     # "mlp_layers_1": 512,
@@ -65,6 +67,8 @@ config = {
     "ckpt": "None",
     "loss_fn": "mse",  # "mse" or "cos_sim"
     "out_size": 768 * 77,
+    "generate-image-every-n-epoch": 20,
+    "save-checkpoint-every-n-epoch": 50,
 }
 
 
@@ -372,7 +376,6 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
 def preload():
     global tokenizer
     global transformer
-    global device
 
     device = f"cuda:{config['gpu_id']}" if torch.cuda.is_available() else "cpu"
     print(f"Running on {device}...")
@@ -387,25 +390,40 @@ def preload():
 
         blip_model, vis_processors, _ = load_model_and_preprocess(
             name="blip_caption",
-            model_type="base_coco",
+            # model_type="base_coco",
+            model_type="large_coco",
             is_eval=True,
             device=device,
         )
 
-    global loaders
-    dataset = D.EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth")
+    # global loaders
+    # dataset = D.EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth")
 
+    # loaders = {
+    #     split: DataLoader(
+    #         dataset=D.Splitter(dataset, split_name=split),
+    #         batch_size=config["batch_size"],
+    #         drop_last=True,
+    #         shuffle=True if split == "train" else False,
+    #         num_workers=8,
+    #         pin_memory=True,
+    #     )
+    #     for split in ["train", "val", "test"]
+    # }
+    dataset = loadDatasetPickle("split_dataset")
     loaders = {
         split: DataLoader(
-            dataset=D.Splitter(dataset, split_name=split),
+            dataset=dataset[split],
             batch_size=config["batch_size"],
-            drop_last=True,
             shuffle=True if split == "train" else False,
-            num_workers=8,
-            pin_memory=True,
+            drop_last=True,
+            num_workers=4,
         )
         for split in ["train", "val", "test"]
     }
+    print("Making Dataloader complete")
+
+    return device, loaders
 
 
 def train():
@@ -414,8 +432,6 @@ def train():
     else:
         model = SampleLevelFeatureExtractorNN()
     model.to(device)
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     print("===========================")
     pprint(config)
     print(now)
@@ -439,6 +455,14 @@ def train():
         "w+",
     ) as outfile:
         outfile.write(config_json)
+    # Saving class source code
+    classSourceCode = inspect.getsource(SampleLevelFeatureExtractorNN)
+    sourceCode = classSourceCode
+    with open(
+        f"/home/choi/BrainDecoder/lightning_logs/SampleLevelFeatureExtraction/{now}/version/class.py",
+        "w+",
+    ) as outfile:
+        outfile.write(sourceCode)
 
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
     ckpt_callback = ModelCheckpoint(
@@ -454,6 +478,8 @@ def train():
         callbacks=[lr_monitor, ckpt_callback],
         accelerator="gpu",
         devices=[config["gpu_id"]],
+        check_val_every_n_epoch=config["generate-image-every-n-epoch"],
+        num_sanity_val_steps=1,
     )
 
     # if config["ckpt"] != "None":
@@ -489,6 +515,8 @@ def parseArgs():
 
 
 if __name__ == "__main__":
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     parseArgs()
-    preload()
+    device, loaders = preload()
     train()
