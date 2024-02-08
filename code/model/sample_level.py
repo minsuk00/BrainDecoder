@@ -39,7 +39,6 @@ blip_model, vis_processors = None, None
 device, loaders, now = None, None, None
 blip_caption_cache = None
 
-
 config = {
     # "batch_size": 16,
     "batch_size": 256,
@@ -48,28 +47,30 @@ config = {
     # "lr": 1e-4 * 75,
     "betas": (0.9, 0.999),
     "scheduler": "LambdaLR",
-    "lambda_factor": 0.9975,
+    "lambda_factor": 0.999,
     # "lambda_factor": 1,
     "weight_decay": 0,
+    # "lstm_layer": 2,
     "lstm_layer": 2,
+    # "lstm_hidden_size": 128,
     "lstm_hidden_size": 128,
     "tsne": False,
     "tsne_interval": 20,
     # "use_blip": False,
     "use_blip": True,
     "mlp": True,
-    "mlp_layers_1": 2056,
-    # "mlp_layers_1": 512,
-    # "mlp_layers_2": 2056,
-    # "mlp_layers_3": 512,
+    # "mlp_layers_1": 2056,
+    "mlp_layers_1": 256,
+    # "mlp_layers_1": 256,
+    # "mlp_layers_2": 512,
+    # "mlp_layers_3": 1024,
     # "mlp_layers_4": 512,
     # "mlp_layers_5": 512,
-    "gpu_id": 1,
+    "gpu_id": 0,
     "ckpt": "None",
     "loss_fn": "mse",  # "mse" or "cos_sim"
     "out_size": 768 * 77,
-    "generate-image-every-n-epoch": 20,
-    "save-checkpoint-every-n-epoch": 50,
+    # "save-checkpoint-every-n-epoch": 50,
 }
 
 
@@ -103,11 +104,11 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
             #     in_features=config["mlp_layers_1"], out_features=config["mlp_layers_2"]
             # ),
             # nn.ReLU(),
-            nn.Linear(in_features=config["mlp_layers_1"], out_features=self.out_size),
             # nn.Linear(
             #     in_features=config["mlp_layers_2"], out_features=config["mlp_layers_3"]
             # ),
             # nn.ReLU(),
+            nn.Linear(in_features=config["mlp_layers_1"], out_features=self.out_size),
             # nn.Linear(
             #     in_features=config["mlp_layers_3"], out_features=config["mlp_layers_4"]
             # ),
@@ -131,7 +132,7 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         # self.loss_fn = nn.MSELoss()
         self.cos = nn.CosineSimilarity()
 
-        self.blip_caption_cache = blip_caption_cache
+        self.caption_cache_dict = blip_caption_cache or {}
 
     def forward(self, input):
         lstm_out, _ = self.lstm(input)
@@ -148,7 +149,7 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         eegs = eegs.to(device)
         eeg_embeddings = self(eegs)
 
-        # get label clip embeddings
+        # get label blip embeddings
         labels = self.get_img_caption(labels, img_names, use_BLIP=config["use_blip"])
         batch_encoding = tokenizer(
             labels,
@@ -326,25 +327,48 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
         return
 
     def get_img_caption(self, labels, img_names, use_BLIP=False):
-        if use_BLIP:
-            # raw algorithm. no caching
-            # processed_imgs = []
-            # for img_name in img_names:
-            #     img_path = os.path.join(
-            #         images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
-            #     )
-            #     pil_img = Image.open(img_path).convert("RGB")
-            #     processed_img = vis_processors["eval"](pil_img).unsqueeze(0).to(device)
-            #     processed_imgs.append(processed_img)
-            # processed_imgs = torch.cat(processed_imgs)
-            # captions = blip_model.generate({"image": processed_imgs})
+        # if use_BLIP:
+        #     # raw algorithm. no caching
+        #     # processed_imgs = []
+        #     # for img_name in img_names:
+        #     #     img_path = os.path.join(
+        #     #         images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
+        #     #     )
+        #     #     pil_img = Image.open(img_path).convert("RGB")
+        #     #     processed_img = vis_processors["eval"](pil_img).unsqueeze(0).to(device)
+        #     #     processed_imgs.append(processed_img)
+        #     # processed_imgs = torch.cat(processed_imgs)
+        #     # captions = blip_model.generate({"image": processed_imgs})
 
-            # caching
-            captions = []
-            for img_name in img_names:
-                if img_name in self.blip_caption_cache:
-                    captions.append(self.blip_caption_cache[img_name])
-                else:
+        #     # caching
+        #     captions = []
+        #     for img_name in img_names:
+        #         if img_name in self.caption_cache_dict:
+        #             captions.append(self.caption_cache_dict[img_name])
+        #         else:
+        #             img_path = os.path.join(
+        #                 images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
+        #             )
+        #             pil_img = Image.open(img_path).convert("RGB")
+        #             processed_img = (
+        #                 vis_processors["eval"](pil_img).unsqueeze(0).to(device)
+        #             )
+        #             caption = blip_model.generate({"image": processed_img})[0]
+        #             captions.append(caption)
+        #             self.caption_cache_dict[img_name] = caption
+        # else:
+        #     prefix = "An image of "
+        #     labels = np.array(labels.cpu())
+        #     labels = LD.batch_idx_to_id(labels)
+        #     labels = LD.batch_id_to_name(labels)
+        #     captions = [prefix + label.replace("_", " ") for label in labels]
+
+        captions = []
+        for i, img_name in enumerate(img_names):
+            if img_name in self.caption_cache_dict:
+                captions.append(self.caption_cache_dict[img_name])
+            else:
+                if use_BLIP:
                     img_path = os.path.join(
                         images_dataset_path, img_name.split("_")[0], img_name + ".JPEG"
                     )
@@ -354,14 +378,19 @@ class SampleLevelFeatureExtractorNN(L.LightningModule):
                     )
                     caption = blip_model.generate({"image": processed_img})[0]
                     captions.append(caption)
-                    self.blip_caption_cache[img_name] = caption
-        else:
-            prefix = "An image of "
-            labels = np.array(labels.cpu())
-            labels = LD.batch_idx_to_id(labels)
-            labels = LD.batch_id_to_name(labels)
-            captions = [prefix + label.replace("_", " ") for label in labels]
+                    self.caption_cache_dict[img_name] = caption
+                else:
+                    prefix = "An image of "
+                    label = labels[i]
+                    label = LD.id_to_name[LD.idx_to_id[label.cpu().item()]]
+                    caption = prefix + label.replace("_", " ")
+                    captions.append(caption)
+                    self.caption_cache_dict[img_name] = caption
 
+        # for pair in zip(
+        #     LD.batch_id_to_name(LD.batch_idx_to_id(np.array(labels.cpu()))), captions
+        # ):
+        #     print(pair)
         return captions
 
     def get_loss_function(self):
@@ -441,7 +470,6 @@ def train():
     model.to(device)
     print("===========================")
     pprint(config)
-    print(now)
     print("===========================")
 
     logger = TensorBoardLogger(
@@ -473,7 +501,7 @@ def train():
 
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
     ckpt_callback = ModelCheckpoint(
-        save_top_k=2,
+        save_top_k=1,
         monitor="val_loss",
         mode="min",
         save_last=True,
@@ -485,7 +513,7 @@ def train():
         callbacks=[lr_monitor, ckpt_callback],
         accelerator="gpu",
         devices=[config["gpu_id"]],
-        check_val_every_n_epoch=config["generate-image-every-n-epoch"],
+        # check_val_every_n_epoch=10,
         num_sanity_val_steps=1,
     )
 
@@ -523,6 +551,7 @@ def parseArgs():
 
 if __name__ == "__main__":
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(now)
 
     parseArgs()
     device, loaders, blip_caption_cache = preload()

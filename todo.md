@@ -122,8 +122,15 @@ outputs.pooler_output -> openai clip output
 - 그러면 SD는 [1,77,768] 다 쓰나? 어디선가 필요 없는 부분은 골라내지 않을까?
 
 할것:
-sample level -> blip 써서 해보기
+sample level -> blip 써서 해보기 -> cos sim 낮은데 더 잘나옴? -> need to understand
 evaluation metrics 구현
+-> Structural Similarity Index Measure (SSIM)
+-> N -way Top-k Classification Accuracy (ACC)
+-> Inception Score (IS)
+-> Fr ́ echet inception distance (FID)
+
+gan...?
+-> first try gan without condition?
 
 idea:
 latent channel 조절? -> what effect?
