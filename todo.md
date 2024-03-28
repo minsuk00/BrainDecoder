@@ -61,7 +61,7 @@ Pixel-level semantics Extractor Mp
 4. project the output of the denoising process to image space with Dldm and finally reconstruct the high-quality image
 
 
-## Evaluation matrix
+## Evaluation metrics
 ..?
 
 
@@ -123,14 +123,16 @@ outputs.pooler_output -> openai clip output
 
 할것:
 sample level -> blip 써서 해보기 -> cos sim 낮은데 더 잘나옴? -> need to understand
-evaluation metrics 구현
--> Structural Similarity Index Measure (SSIM)
--> N -way Top-k Classification Accuracy (ACC)
--> Inception Score (IS)
--> Fr ́ echet inception distance (FID)
+
+77x768이 아니라 768로 해보기
+![alt text](image.png)
 
 gan...?
 -> first try gan without condition?
 
 idea:
 latent channel 조절? -> what effect?
+
+
+# 앞으로 할 것
+dataset loading 종평이가 준걸로 코드 바꾸기
