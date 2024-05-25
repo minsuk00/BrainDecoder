@@ -13,3 +13,6 @@ lightning_logs/
 *.tar
 *.gz
 *.pth
+
+.env
+_deprecated/

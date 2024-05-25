@@ -7,13 +7,23 @@ from PIL import Image
 import pickle
 import time
 from tqdm import tqdm
+from typing import Literal
+from torch.utils.data import DataLoader
 
 # import cv2
 
-root_path = "/home/choi/BrainDecoder/"
-dataset_path = os.path.join(root_path, "dataset")
+root_path = "/scratch/choi"
+dataset_path = os.path.join(root_path, "dataset", "Brain2Image")
 images_dataset_path = os.path.join(dataset_path, "imageNet_images")
 eeg_dataset_path = os.path.join(dataset_path, "eeg")
+
+
+eeg_dataset_options = Literal[
+    "eeg_signals_raw_with_mean_std.pth",
+    "eeg_14_70_std.pth",
+    "eeg_5_95_std.pth",
+    "eeg_55_95_std.pth",
+]
 
 
 class EEGDataset(Dataset):
@@ -41,12 +51,15 @@ class EEGDataset(Dataset):
 
 
 class Splitter(Dataset):
-    def __init__(self, dataset, split_name="train") -> None:
+    def __init__(
+        self, dataset, split_name: Literal["train", "val", "test"] = "train"
+    ) -> None:
         super().__init__()
         self.dataset = dataset
 
         loaded = torch.load(
             os.path.join(eeg_dataset_path, "block_splits_by_image_all.pth")
+            # os.path.join(eeg_dataset_path, "block_splits_by_image_single.pth")
         )
         self.target_data_indices = loaded["splits"][0][split_name]
         # filter data that is too short
@@ -54,6 +67,7 @@ class Splitter(Dataset):
             i
             for i in self.target_data_indices
             if 450 <= self.dataset.data[i]["eeg"].size(1) <= 600
+            and self.dataset[i][2] != "n03452741_17620"
         ]
 
         self.size = len(self.target_data_indices)
@@ -160,14 +174,16 @@ class EEGImageDataset(Dataset):
 
 from typing import Literal
 
-Options = Literal[
-    "eeg_dataset",
-    "split_dataset",
-    "eeg_image_dataset_64_diffaug_none",
-    "eeg_image_dataset_64_diffaug_all",
-    "eeg_image_dataset_64_diffaug_none_norm",
-    "blip_caption_cache_dict",
-]
+# Options = Literal[
+#     "eeg_dataset",
+#     "split_dataset",
+#     "eeg_image_dataset_64_diffaug_none",
+#     "eeg_image_dataset_64_diffaug_all",
+#     "eeg_image_dataset_64_diffaug_none_norm",
+#     "blip_caption_cache_dict",
+# ]
+
+Options = Literal["split_dataloader_128"]
 
 
 def loadDatasetPickle(pickleFileName: Options):
@@ -230,6 +246,37 @@ def dumpDatasetPickle():
         print("finished dumping!")
 
 
+def loadPickle(pickleFileName: Options):
+    file = os.path.join(dataset_path, "pickle", pickleFileName + ".pickle")
+    with open(file, "rb") as fr:
+        print(f"loading {pickleFileName} pickle...")
+        data = pickle.load(fr)
+        # print(data)
+        print(f"finished loading {pickleFileName}!")
+    return data
+
+
+def dumpDataloaderPickle(batchSize: int):
+    dataset = EEGDataset(eeg_dataset_file_name="eeg_signals_raw_with_mean_std.pth")
+    loader = {
+        split: DataLoader(
+            dataset=Splitter(dataset, split_name=split),
+            batch_size=batchSize,
+            drop_last=True,
+            shuffle=True if split == "train" else False,
+            num_workers=8,
+            pin_memory=True,
+        )
+        for split in ["train", "val", "test"]
+    }
+
+    pickleFileName = f"split_dataloader_{batchSize}.pickle"
+    file = os.path.join(dataset_path, "pickle", pickleFileName)
+    with open(file, "wb") as fw:
+        pickle.dump(loader, fw)
+    print(f"finished dumping to {pickleFileName}!")
+
+
 def dumpBlipCaptionPickle():
     from lavis.models import load_model_and_preprocess
 
@@ -278,4 +325,19 @@ if __name__ == "__main__":
     # dict = loadDatasetPickle("blip_caption_cache_dict")
     # for i in dict:
     #     print(dict[i])
-    print(f"took {time.time()-start} seconds")
+
+    # print("start dumping pickle...")
+    # dumpDataloaderPickle(128)
+    # print("pickle dumped. test loading...")
+    # loader = loadPickle("split_dataloader_128")
+    # print(loader)
+    # print(f"took {time.time()-start} seconds")
+
+    # from time import sleep
+
+    # loader = loadPickle("split_dataloader_128")
+    # sleep(10)
+    # print(loader)
+    # for item in loader["train"]:
+    # print(item)
+    # sleep(0.5)
